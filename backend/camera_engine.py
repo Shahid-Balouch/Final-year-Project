@@ -53,7 +53,7 @@ print(f"[FaceNet] Models initialized on: {_DEVICE_GPU}")
 print(f"[CLIP] Loading ViT-B-32 on: {_DEVICE_GPU}...")
 _CLIP_MODEL, _, _CLIP_PREPROCESS = open_clip.create_model_and_transforms(
     'ViT-B-32',
-    pretrained='laion2b_s34b_b79k',
+    pretrained=None,
     device=_DEVICE_GPU
 )
 _CLIP_TOKENIZER = open_clip.get_tokenizer('ViT-B-32')

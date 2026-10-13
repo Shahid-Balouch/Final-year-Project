@@ -12,7 +12,13 @@ ultralytics
 torch
 torchvision
 facenet-pytorch
-playsound
+# playsound removed (does not support Python 3.12; sound_worker.py uses Windows MCI instead)
 python-dotenv
 requests
 open_clip_torch
+
+# rule-engine / detectors / trackers dependencies
+ultralytics>=8.2.0
+shapely>=2.0.0
+lap>=0.5.12
+python-dotenv

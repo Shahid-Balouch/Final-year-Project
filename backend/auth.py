@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 import jwt
 from datetime import datetime, timedelta
 
-SECRET_KEY = "super-secret-smartsurv-key" # In production, use environment variables
+SECRET_KEY = "super-secret-ai-surviallance-key" # In production, use environment variables
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 Day
 

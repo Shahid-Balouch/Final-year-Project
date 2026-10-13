@@ -1,0 +1,30 @@
+HOSPITAL_ZONES = {
+    "reception": {"allowed_roles": ["all"], "mask_required": False},
+    "wards": {"allowed_roles": ["all"], "mask_required": False, "crowd_limit": 6, "loiter_seconds": 3600},
+    "icu": {"allowed_roles": ["owner", "doctor", "nurse"], "mask_required": True, "severity_override": "critical"},
+    "ot": {"allowed_roles": ["owner", "surgeon", "nurse"], "mask_required": True, "severity_override": "critical"},
+    "pharmacy": {"allowed_roles": ["owner", "pharmacist"], "mask_required": False, "severity_override": "high"},
+    "medicine_store": {"allowed_roles": ["owner", "pharmacist"], "mask_required": False, "after_hours": {"start": "22:00", "end": "06:00"}, "severity_override": "critical"},
+    "mortuary": {"allowed_roles": ["owner", "pathologist"], "mask_required": False, "severity_override": "critical"},
+    "emergency": {"allowed_roles": ["all"], "mask_required": False, "crowd_limit": 20},
+    "isolation": {"allowed_roles": ["owner", "doctor", "nurse"], "mask_required": True, "severity_override": "critical"},
+    "admin_office": {"allowed_roles": ["owner", "admin"], "mask_required": False, "severity_override": "high"},
+}
+
+HOSPITAL_RULES = [
+    {"name": "icu_access", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "doctor", "nurse"], "description": "Unauthorized ICU access."},
+    {"name": "ot_access", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "surgeon", "nurse"], "description": "Unauthorized OT access."},
+    {"name": "medicine_store_intrusion", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "pharmacist"], "description": "Medicine store intrusion."},
+    {"name": "mortuary_access", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "pathologist"], "description": "Mortuary access."},
+    {"name": "isolation_breach", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "doctor", "nurse"], "description": "Isolation breach."},
+    {"name": "no_mask_icu", "severity": "high", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Missing mask in ICU."},
+    {"name": "no_mask_ot", "severity": "high", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Missing mask in OT."},
+    {"name": "fall_detected", "severity": "high", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Fall detected."},
+    {"name": "patient_fall_ward", "severity": "high", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Patient fall in ward."},
+    {"name": "fire_smoke", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Fire or smoke detected."},
+    {"name": "fight", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Fight detected."},
+    {"name": "weapon", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": ["security"], "description": "Weapon detected."},
+    {"name": "unauthorized_exit", "severity": "high", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "security"], "description": "Unauthorized exit."},
+    {"name": "crowd_emergency", "severity": "medium", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Crowd emergency."},
+    {"name": "loitering_ward", "severity": "medium", "applies_to": ["unknown"], "exempt_roles": [], "description": "Loitering in ward."},
+]

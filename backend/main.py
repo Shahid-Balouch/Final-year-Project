@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Query, Form
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +16,16 @@ pcs = set()
 import torch
 
 from camera_engine import CameraEngine
+
+# Rule-engine / detector / tracker layer (additive)
+import time as _time_rule
+from detectors import ActionRecognizer
+from trackers import PersonTracker, LoiterTracker, CrowdTracker, TailgateTracker
+from rule_engine import RuleEngine, build_alert_payload
+from identity import resolve_identity
+from alerts import dispatch_alert
+from records import save_detection
+from zones import ZoneManager
 from database import SessionLocal, Base, engine, User, Setting, Camera, Alert
 from auth import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
 import jwt
@@ -470,6 +480,26 @@ async def ingest(params: Offer):
     return JSONResponse(content={"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
 
 camera = CameraEngine(source="auto")
+
+# Rule-engine singletons (additive)
+try:
+    _recognizer = ActionRecognizer()
+    _tracker = PersonTracker()
+    _loiter = LoiterTracker(default_seconds=int(os.getenv("LOITER_DEFAULT_SECONDS", "1800")))
+    _crowd = CrowdTracker()
+    _tailgate = TailgateTracker()
+    _rule_engine = RuleEngine()
+    _zone_mgr = ZoneManager()
+    print("[RuleEngine] Singletons initialized.")
+except Exception as e:
+    print(f"[RuleEngine] Singleton init error: {e}")
+    _recognizer = globals().get("_recognizer")
+    _tracker = globals().get("_tracker")
+    _loiter = globals().get("_loiter")
+    _crowd = globals().get("_crowd")
+    _tailgate = globals().get("_tailgate")
+    _rule_engine = globals().get("_rule_engine")
+    _zone_mgr = globals().get("_zone_mgr")
 
 # --- URL / Online Cameras ---
 def _seed_cameras_from_json():
@@ -1141,6 +1171,107 @@ async def remote_input_endpoint(websocket: WebSocket, client_id: str = Query("1"
 
 # ── Static mount registered LAST so all API routes take priority ─────────────
 app.mount("/api/watchlist/images", StaticFiles(directory=WATCHLIST_PATH), name="watchlist_images")
+
+# ── Rule-engine API endpoints (additive) ──────────────────────────────────────
+@app.post("/api/staff/register")
+async def api_staff_register(
+    name: str = Form(...),
+    role: str = Form(...),
+    allowed_zones: str = Form(""),
+    allowed_roles: str = Form(""),
+    image: UploadFile = File(...),
+):
+    try:
+        from io import BytesIO
+        from PIL import Image
+        import torch
+        import camera_engine
+        from identity.staff_db import register_staff
+
+        content = await image.read()
+        pil = Image.open(BytesIO(content)).convert("RGB")
+        face_tensor = camera_engine._MTCNN(pil)
+        if face_tensor is None:
+            raise HTTPException(status_code=400, detail="No face detected")
+        if face_tensor.dim() == 4:
+            face_tensor = face_tensor[0]
+        with torch.no_grad():
+            emb = camera_engine._RESNET(face_tensor.unsqueeze(0).to(camera_engine._DEVICE_GPU))
+        embedding = emb.squeeze(0).cpu().tolist()
+
+        az = [x.strip() for x in allowed_zones.split(",") if x.strip()]
+        ar = [x.strip() for x in allowed_roles.split(",") if x.strip()]
+        entry = register_staff(name, role, embedding, az or ["all"], ar)
+        # do not return embedding
+        safe = {k: v for k, v in entry.items() if k != "embedding"}
+        return {"status": "success", "staff": safe}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/staff")
+def api_staff_list():
+    try:
+        from identity.staff_db import load_staff
+        rows = load_staff()
+        return {"staff": [{"id": r.get("id"), "name": r.get("name"), "role": r.get("role"),
+                           "active": r.get("active", True), "allowed_zones": r.get("allowed_zones", [])}
+                          for r in rows]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/staff/{staff_id}")
+def api_staff_delete(staff_id: str):
+    try:
+        from identity.staff_db import deactivate
+        deactivate(staff_id)
+        return {"status": "success", "staff_id": staff_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/zones/{camera_id}")
+def api_zones(camera_id: str):
+    try:
+        if "_zone_mgr" not in globals() or _zone_mgr is None:
+            raise HTTPException(status_code=503, detail="Zone manager unavailable")
+        cam_zones = _zone_mgr.zones.get(camera_id, _zone_mgr.zones.get(f"cam_{camera_id}"))
+        if cam_zones is None:
+            # try any key containing
+            for k, v in _zone_mgr.zones.items():
+                if str(camera_id) in str(k):
+                    cam_zones = v
+                    break
+        return {"camera_id": camera_id, "zones": cam_zones}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/records")
+def api_records(limit: int = Query(100)):
+    try:
+        from records.store import read_records
+        return {"records": read_records(limit)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/rules")
+def api_rules():
+    try:
+        if "_rule_engine" not in globals() or _rule_engine is None:
+            raise HTTPException(status_code=503, detail="Rule engine unavailable")
+        return {"rules": [{"name": r.get("name"), "severity": r.get("severity"),
+                           "applies_to": r.get("applies_to", [])} for r in _rule_engine.rules]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
