@@ -65,6 +65,18 @@ export interface AppContextValue {
   cameraMode: 'detection' | 'search' | 'both' | null;
   handleModeChange: (mode: 'detection' | 'search' | 'both') => Promise<void>;
   deleteAlerts: (ids: number[]) => Promise<void>;
+  analytics: {
+    peakHours: { hour: string; count: number }[];
+    zoneHeatmap: { zone: string; count: number }[];
+    summary: {
+      total_persons_detected_today: number;
+      total_unknown_persons_today: number;
+      alerts_by_severity: { low: number; medium: number; high: number; critical: number };
+      total_alerts_today: number;
+    } | null;
+    analyticsLoading: boolean;
+  };
+  fetchAnalytics: () => Promise<void>;
 }
 
 export const AppContext = React.createContext<AppContextValue | null>(null);

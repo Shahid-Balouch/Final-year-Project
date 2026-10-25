@@ -1,15 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
 import { Activity, Download, Shield, AlertTriangle, User, Camera, Eye, X, ZoomIn } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import DashboardAnalytics from '../../components/dashboard/DashboardAnalytics';
 import type { Alert } from '../../types/dashboard';
 
 const Analytics: React.FC = () => {
-  const { alerts, detectedPersons, isConnected } = useApp();
+  const { alerts, detectedPersons, isConnected, analytics, fetchAnalytics } = useApp();
   const [tab, setTab] = useState<'charts' | 'live'>('charts');
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [viewingAlert, setViewingAlert] = useState<Alert | null>(null);
+
+  React.useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const getSeverity = (a: Alert) => {
     if (a.is_person_search_match) return 'MATCH';
@@ -189,7 +196,69 @@ const Analytics: React.FC = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {tab === 'charts' ? (
-          <DashboardAnalytics alerts={alerts} detectedPersons={detectedPersons} isConnected={isConnected} systemMode="both" />
+          <div className="space-y-6 p-6">
+            <DashboardAnalytics alerts={alerts} detectedPersons={detectedPersons} isConnected={isConnected} systemMode="both" />
+
+            {/* Peak Hours Bar Chart */}
+            <div className="border border-[var(--color-outline-variant)] bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <Activity size={16} className="text-[var(--color-primary)]" />
+                  <div>
+                    <p className="text-[8px] tracking-[0.4em] mb-0.5 font-black uppercase" style={{ color: 'var(--color-outline)' }}>Peak Hours</p>
+                    <p className="text-xs font-bold text-[var(--color-on-surface)]">ALERTS_BY_HOUR_OF_DAY</p>
+                  </div>
+                </div>
+              </div>
+              <div className="h-[300px]">
+                {analytics?.peakHours.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.peakHours} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
+                      <XAxis dataKey="hour" tick={{ fill: 'var(--color-outline)', fontSize: 9, fontWeight: 700 }} axisLine={false} />
+                      <YAxis tick={{ fill: 'var(--color-outline)', fontSize: 9, fontWeight: 700 }} axisLine={false} allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="count" name="Alerts" radius={[4, 4, 0, 0]} barSize={24} fill="var(--color-primary)" stackId="a" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center opacity-30 text-[10px] font-bold tracking-[0.3em] uppercase">No peak hours data</div>
+                )}
+              </div>
+            </div>
+
+            {/* Zone Heatmap */}
+            <div className="border border-[var(--color-outline-variant)] bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2.5">
+                  <Shield size={16} className="text-[#a855f7]" />
+                  <div>
+                    <p className="text-[8px] tracking-[0.4em] mb-0.5 font-black uppercase" style={{ color: 'var(--color-outline)' }}>Zone Heatmap</p>
+                    <p className="text-xs font-bold text-[var(--color-on-surface)]">ALERTS_BY_ZONE</p>
+                  </div>
+                </div>
+                <p className="text-[9px] font-bold text-[var(--color-outline)]">{analytics?.zoneHeatmap.length} zones</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {analytics?.zoneHeatmap.length ? (
+                  analytics.zoneHeatmap.map((z, i) => (
+                    <div key={i} className="p-4 rounded-2xl flex items-center justify-between"
+                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>{z.zone}</p>
+                        <p className="text-2xl font-black" style={{ color: 'var(--color-on-surface)' }}>{z.count}</p>
+                      </div>
+                      <div className="w-24 h-6 bg-[var(--color-surface-container)] rounded-full overflow-hidden">
+                        <div className="h-full" style={{ width: `${Math.min(100, (z.count / Math.max(1, ...analytics.zoneHeatmap.map(z => z.count)))) * 100}%`, background: 'var(--color-primary)' }} />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="h-full flex items-center justify-center opacity-30 text-[10px] font-bold tracking-[0.3em] uppercase">No zone data</div>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="p-6 space-y-6">
 

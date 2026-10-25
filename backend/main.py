@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 import asyncio
 import json
 import os
+import csv
+import io
+import glob
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, List
 from contextlib import asynccontextmanager
 import time
@@ -340,21 +344,38 @@ async def alert_broadcaster():
             await asyncio.sleep(1)
 
 async def retention_cleanup_task():
-    """Background task to delete alerts older than the retention policy."""
+    """Background task to delete alerts older than the retention policy,
+    plus their associated snapshot images from disk."""
     while True:
         try:
             retention_days = _db_get("retention_days", 30)
             if retention_days > 0:
                 cutoff_ts = (time.time() - (retention_days * 86400)) * 1000
                 db = SessionLocal()
-                deleted_count = db.query(Alert).filter(Alert.backend_ts < cutoff_ts).delete()
+                deleted_count = db.query(Alert).filter(Alert.backend_ts < cutoff_ts).delete(synchronize_session=False)
                 db.commit()
+                db.close()
+
+                # Delete old snapshot images from disk
+                snap_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "snapshots"))
+                snap_deleted = 0
+                if os.path.exists(snap_dir):
+                    cutoff_time = time.time() - (retention_days * 86400)
+                    for f in glob.glob(os.path.join(snap_dir, "*.jpg")):
+                        try:
+                            if os.path.getmtime(f) < cutoff_time:
+                                os.remove(f)
+                                snap_deleted += 1
+                        except Exception:
+                            pass
+
                 if deleted_count > 0:
                     print(f"[Cleanup] Deleted {deleted_count} alerts older than {retention_days} days.")
-                db.close()
+                if snap_deleted > 0:
+                    print(f"[Cleanup] Deleted {snap_deleted} old snapshots.")
         except Exception as e:
             print(f"[Cleanup] Error: {e}")
-        
+
         # Run cleanup once an hour
         await asyncio.sleep(3600)
 
@@ -1309,6 +1330,130 @@ def api_rules():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── Analytics endpoints (additive) ──────────────────────────────────────
+@app.get("/api/analytics/peak-hours")
+def api_analytics_peak_hours(db: Session = Depends(get_db)):
+    """Group alerts by hour of day for bar chart."""
+    alerts = db.query(Alert).all()
+    hourly = {}
+    for a in alerts:
+        try:
+            ts = a.backend_ts or 0
+            if ts == 0:
+                continue
+            dt = datetime.fromtimestamp(ts / 1000.0, tz=timezone.utc)
+            hour = dt.strftime("%H:00")
+            hourly[hour] = hourly.get(hour, 0) + 1
+        except Exception:
+            continue
+    sorted_hours = sorted(hourly.items())
+    return {"peak_hours": [{"hour": h, "count": c} for h, c in sorted_hours]}
+
+
+@app.get("/api/analytics/zone-heatmap")
+def api_analytics_zone_heatmap(db: Session = Depends(get_db)):
+    """Group alerts by zone (feed_id) for pie/bar chart."""
+    alerts = db.query(Alert).all()
+    zone_counts = {}
+    for a in alerts:
+        zone = a.feed_id or "unknown"
+        zone_counts[zone] = zone_counts.get(zone, 0) + 1
+    return {"zone_heatmap": [{"zone": z, "count": c} for z, c in sorted(zone_counts.items(), key=lambda x: -x[1])]}
+
+
+@app.get("/api/analytics/summary")
+def api_analytics_summary(db: Session = Depends(get_db)):
+    """Return total persons detected today, total unknown, alerts by severity."""
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start_ts = int(today_start.timestamp() * 1000)
+
+    alerts = db.query(Alert).filter(Alert.backend_ts >= today_start_ts).all()
+
+    total_persons_today = 0
+    total_unknown_today = 0
+    severity_counts = {"low": 0, "medium": 0, "high": 0, "critical": 0}
+
+    for a in alerts:
+        detections = json.loads(a.detections) if a.detections else []
+        labels = [d.get("label", "").lower() for d in detections]
+
+        if any("person" in l for l in labels):
+            total_persons_today += 1
+
+        if not a.is_person_search_match and any("person" in l for l in labels):
+            total_unknown_today += 1
+
+        if any(l in ["weapon", "knife", "gun"] for l in labels):
+            severity_counts["critical"] += 1
+        elif any(l in ["fight", "violence"] for l in labels):
+            severity_counts["high"] += 1
+        elif a.is_person_search_match:
+            severity_counts["high"] += 1
+        elif any("person" in l for l in labels):
+            severity_counts["medium"] += 1
+        else:
+            severity_counts["low"] += 1
+
+    return {
+        "total_persons_detected_today": total_persons_today,
+        "total_unknown_persons_today": total_unknown_today,
+        "alerts_by_severity": severity_counts,
+        "total_alerts_today": len(alerts),
+    }
+
+
+@app.get("/api/records/export")
+def api_records_export(
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Export records as CSV with optional date filters."""
+    query = db.query(Alert)
+
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            query = query.filter(Alert.backend_ts >= int(start_dt.timestamp() * 1000))
+        except Exception:
+            pass
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date)
+            query = query.filter(Alert.backend_ts < int((end_dt + timedelta(days=1)).timestamp() * 1000))
+        except Exception:
+            pass
+
+    alerts = query.order_by(Alert.backend_ts.desc()).all()
+
+    def generate():
+        yield "id,timestamp,backend_ts,feed_id,detections,is_person_search_match,image_base64,location_lat,location_lon\n"
+        for a in alerts:
+            detections = a.detections or "[]"
+            image = a.image_base64 or ""
+            yield (
+                f'{a.id},'
+                f'"{(a.timestamp or "")}",'
+                f'{a.backend_ts or 0},'
+                f'"{(a.feed_id or "")}",'
+                f'"{detections}",'
+                f'{bool(a.is_person_search_match)},'
+                f'"{image}",'
+                f'"{(a.location_lat or "")}",'
+                f'"{(a.location_lon or "")}"\n'
+            )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename=ai_surviallance_records_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        },
+    )
+
 
 # ── Notification endpoints (additive)
 @app.websocket("/ws/notifications")

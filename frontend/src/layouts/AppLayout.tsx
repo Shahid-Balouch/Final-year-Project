@@ -81,6 +81,46 @@ const AppLayout: React.FC = () => {
 
   const [dataSettings, setDataSettings] = useState({ display_days: 1, retention_days: 30 });
 
+  // Analytics state
+  const [analytics, setAnalytics] = useState<{
+    peakHours: { hour: string; count: number }[];
+    zoneHeatmap: { zone: string; count: number }[];
+    summary: {
+      total_persons_detected_today: number;
+      total_unknown_persons_today: number;
+      alerts_by_severity: { low: number; medium: number; high: number; critical: number };
+      total_alerts_today: number;
+    } | null;
+    analyticsLoading: boolean;
+  }>({
+    peakHours: [],
+    zoneHeatmap: [],
+    summary: null,
+    analyticsLoading: false,
+  });
+
+  const fetchAnalytics = async () => {
+    setAnalytics(prev => ({ ...prev, analyticsLoading: true }));
+    try {
+      const [peakRes, zoneRes, summaryRes] = await Promise.all([
+        fetch(`${API}/api/analytics/peak-hours`),
+        fetch(`${API}/api/analytics/zone-heatmap`),
+        fetch(`${API}/api/analytics/summary`),
+      ]);
+      const peakData = await peakRes.json();
+      const zoneData = await zoneRes.json();
+      const summaryData = await summaryRes.json();
+      setAnalytics({
+        peakHours: peakData.peak_hours || [],
+        zoneHeatmap: zoneData.zone_heatmap || [],
+        summary: summaryData.summary || summaryData,
+        analyticsLoading: false,
+      });
+    } catch (_) {
+      setAnalytics(prev => ({ ...prev, analyticsLoading: false }));
+    }
+  };
+
   // â”€â”€ Unread alerts badge â”€â”€
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [systemLatency, setSystemLatency] = useState<number | null>(null);
@@ -146,6 +186,8 @@ const AppLayout: React.FC = () => {
       .then(r => r.json())
       .then(d => { if (d.display_days) setDataSettings(d); })
       .catch(() => {});
+
+    fetchAnalytics();
   }, []);
 
   // --- Role Protection ---
@@ -508,6 +550,8 @@ const AppLayout: React.FC = () => {
     systemLatency,
     cameraMode, handleModeChange,
     deleteAlerts,
+    analytics,
+    fetchAnalytics,
   };
 
   return (

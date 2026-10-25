@@ -7,6 +7,7 @@ import {
 import { jsPDF } from 'jspdf';
 import { useApp } from '../../context/AppContext';
 import type { Alert } from '../../types/dashboard';
+import { API } from '../../types/dashboard';
 
 type FilterSeverity = 'ALL' | 'CRITICAL' | 'HIGH' | 'ALERT' | 'MATCH';
 
@@ -31,6 +32,8 @@ const AlertsLog: React.FC = () => {
   const [filterQuery, setFilterQuery] = useState('');
   const [viewingAlert, setViewingAlert] = useState<Alert | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const metrics = useMemo(() => {
     const total = alerts.length;
@@ -60,30 +63,26 @@ const AlertsLog: React.FC = () => {
     });
   }, [alerts, filterSeverity, filterQuery]);
 
-  const handleExportCSV = () => {
-    const headers = ['Timestamp', 'Severity', 'Detections', 'Confidence', 'Location', 'Watchlist Match'];
-    const rows = filtered.map(a => {
-      const sev = getSeverity(a);
-      const labels = a.detections.map(d => d.label).join('; ');
-      const conf = a.detections.length
-        ? (Math.max(...a.detections.map(d => d.confidence)) * 100).toFixed(0) + '%'
-        : 'N/A';
-      return [
-        `"${a.timestamp}"`,
-        `"${sev.toUpperCase()}"`,
-        `"${labels}"`,
-        `"${conf}"`,
-        `"${a.location?.id ?? 'N/A'}"`,
-        `"${a.is_person_search_match ? 'YES' : 'NO'}"`,
-      ];
-    });
-    const csv = 'data:text/csv;charset=utf-8,﻿' + headers.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csv));
-    link.setAttribute('download', `ai_surviallance_alerts_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCSV = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.set('start_date', startDate);
+      if (endDate) params.set('end_date', endDate);
+      const res = await fetch(`${API}/api/records/export?${params.toString()}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ai_surviallance_records_${Date.now()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export error', e);
+      alert('Failed to export CSV.');
+    }
   };
 
   const handleDownloadPDF = (alertToExport?: Alert) => {
@@ -470,6 +469,18 @@ const AlertsLog: React.FC = () => {
             type="text" value={filterQuery} onChange={e => setFilterQuery(e.target.value)}
             placeholder="Search alerts..."
             className="px-4 py-2.5 text-xs w-64 rounded-xl"
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface)', outline: 'none' }}
+          />
+          <label className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>From</label>
+          <input
+            type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="px-3 py-2 text-xs rounded-xl"
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface)', outline: 'none' }}
+          />
+          <label className="text-[8px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>To</label>
+          <input
+            type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="px-3 py-2 text-xs rounded-xl"
             style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface)', outline: 'none' }}
           />
         </div>

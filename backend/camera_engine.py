@@ -12,6 +12,8 @@ import logging
 import json as _json
 import numpy as np
 
+from anti_spoof import check_liveness
+
 # Suppress OpenCV noise
 os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
@@ -664,6 +666,12 @@ class CameraEngine:
                     x2 = min(w, x2 + pad_x); y2 = min(h, y2 + pad_y)
                     crop = frame_bgr[y1:y2, x1:x2]
                     if crop.size == 0: return None
+                    # ── Anti-spoof / liveness check ──────────────────────
+                    is_real, variance = check_liveness(crop)
+                    if not is_real:
+                        print(f"[AntiSpoof] Spoof attempt rejected (variance={variance:.2f}) at box={box}")
+                        return None
+                    # ─────────────────────────────────────────────────────
                     crop_resized = cv2.resize(crop, (80, 80))
                     _, buf = cv2.imencode('.jpg', crop_resized, [cv2.IMWRITE_JPEG_QUALITY, 70])
                     return base64.b64encode(buf).decode('utf-8')
