@@ -49,9 +49,9 @@ const StatCard: React.FC<{
   >
     <div className="flex justify-between items-start">
       <div className="relative z-10">
-        <p className="text-[8px] tracking-[0.35em] mb-3 uppercase font-black" style={{ color: 'var(--color-outline)' }}>{label}</p>
-        <p className="text-4xl font-bold tabular-nums tracking-tighter" style={{ color }}>{value}</p>
-        <p className="text-[8px] mt-2 uppercase tracking-widest font-bold" style={{ color: 'var(--color-outline-variant)' }}>{sub}</p>
+        <p className="text-sm tracking-[0.2em] mb-4 uppercase font-semibold" style={{ color: 'var(--color-outline)' }}>{label}</p>
+        <p className="text-5xl font-black tabular-nums tracking-tighter" style={{ color }}>{value}</p>
+        <p className="text-sm mt-4 uppercase tracking-widest font-bold" style={{ color: 'var(--color-outline-variant)' }}>{sub}</p>
       </div>
       <div className="w-16 h-10 mt-1 opacity-40">
         <ResponsiveContainer width="100%" height="100%">
