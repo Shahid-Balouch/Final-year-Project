@@ -345,7 +345,27 @@ class CameraEngine:
         self.mode = "detection" # "detection" | "search" | "both"
         
         self.class_names = list(self.model.names.values())
-        self.class_thresholds = {name: 0.5 for name in self.class_names}
+        # Default thresholds for surveillance-relevant classes (percent -> decimal)
+        # All other model classes default to 0.50 but are not shown in the Settings UI.
+        _default_thresholds = {
+            "person": 0.40,
+            "knife": 0.30,
+            "scissors": 0.30,
+            "baseball bat": 0.35,
+            "backpack": 0.45,
+            "suitcase": 0.45,
+            "handbag": 0.45,
+            "cell phone": 0.50,
+            "laptop": 0.50,
+            "sports ball": 0.50,
+            "car": 0.60,
+            "motorcycle": 0.60,
+            "truck": 0.60,
+            "bus": 0.60,
+            "bicycle": 0.60,
+        }
+        self.class_thresholds = {name: 0.50 for name in self.class_names}
+        self.class_thresholds.update(_default_thresholds)
         self.watchlist = {} # name -> embedding
         self.reid_buffer = [] # list of {"id": str, "embedding": tensor, "last_feed": str, "last_seen": float}
         self.reid_threshold = 0.75
@@ -597,18 +617,19 @@ class CameraEngine:
         detections = []
         if self.mode in ["detection", "both"]:
             # Use .track() for smoother persistence and motion stability
-            results = self.model.track(frame, persist=True, verbose=False, imgsz=640, device=_DEVICE_GPU, tracker="botsort.yaml")
+            # Run YOLO with global low threshold so nothing relevant is missed upstream.
+            # Per-class filtering happens in Python below using user-saved settings.
+            results = self.model.track(frame, persist=True, verbose=False, imgsz=640, device=_DEVICE_GPU, tracker="botsort.yaml", conf=0.25)
             if results and results[0].boxes:
                 for box in results[0].boxes:
                     label = self.model.names[int(box.cls[0])]
                     conf = float(box.conf[0])
                     
-                    # Special threshold for danger items (Recall > Precision for safety)
-                    threshold = self.class_thresholds.get(label, 0.5)
-                    if label.lower() in ["knife", "gun"]:
-                        threshold = 0.25 # Be more sensitive to weapons
+                    # Get per-class threshold from user settings (default 0.50)
+                    required_conf = self.class_thresholds.get(label, 0.50)
                     
-                    if conf >= threshold:
+                    # Filter: only proceed if confidence meets the specific class threshold
+                    if conf >= required_conf:
                         detections.append({"label": label, "confidence": conf, "box": box.xyxy[0].tolist()})
         return detections
 
@@ -682,6 +703,14 @@ class CameraEngine:
             # Face count is typically 1-3, so loop overhead is negligible.
             for i, emb in enumerate(embeddings):
                 res = _match_face_task(i, emb)
+                # Real-time unknown-person notification (additive, non-blocking)
+                try:
+                    from identity.resolver import resolve_identity
+                    if resolve_identity(emb.detach().cpu().tolist()).get("identity") == "unknown":
+                        from notifications.detector_hook import notify_unknown
+                        notify_unknown(frame, boxes[i], feed_id)
+                except Exception:
+                    pass
                 if res:
                     label, box = res
                     pid = label.split(":")[-1].strip()
@@ -694,6 +723,61 @@ class CameraEngine:
                         "is_focused": is_focused
                     })
                     if is_target or is_focused: one_is_match = True
+
+            # Real-time unknown-person notification (additive, non-blocking enqueue)
+            try:
+                SNAP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'snapshots'))
+                os.makedirs(SNAP_DIR, exist_ok=True)
+                from identity.resolver import resolve_identity
+                from notifications import notification_service
+                from records.notification_store import save_notification
+                for i, emb in enumerate(embeddings):
+                    ei = emb.detach().cpu().numpy().tolist() if hasattr(emb, 'detach') else (emb.cpu().tolist() if hasattr(emb, 'cpu') else list(emb))
+                    identity_info = resolve_identity(ei)
+                    if identity_info.get('identity') == 'unknown':
+                        if time.time() - getattr(self, '_last_unknown_notify_ts', 0) < 15:
+                            continue
+                        self._last_unknown_notify_ts = time.time()
+                        snap_id = f"unk_{int(time.time() * 1000)}_{i}"
+                        try:
+                            cv2.imwrite(os.path.join(SNAP_DIR, snap_id + '.jpg'), frame)
+                        except Exception:
+                            pass
+                        ctx = {
+                            'camera': feed_id,
+                            'timestamp': time.time(),
+                            'zone': None,
+                            'group_size': len(boxes) if boxes is not None else len(embeddings),
+                            'has_mask': True,
+                            'action': None,
+                            'is_fallen': False,
+                            'loiter_seconds': 0,
+                            'after_hours': False,
+                            'tailgating': False,
+                            'snapshot_url': '/snapshots/' + snap_id + '.jpg',
+                            'per_person': {},
+                        }
+                        notif = notification_service.build_notification(identity_info, [], ctx)
+                        notification_service.enqueue(notif)
+                        save_notification(notif)
+            except Exception as _ne:
+                print(f'[Notify] error: {_ne}')
+
+            # Additive: rule-engine + multi-channel alert dispatch (person/weapon/abandoned/phone/vehicle)
+            try:
+                from rule_engine.alert_hook import evaluate_frame as _re_eval
+                face_boxes = []
+                for i, emb in enumerate(embeddings):
+                    box = [float(v) for v in boxes[i]]
+                    face_boxes.append({
+                        "label": "person",
+                        "confidence": float(probs[i]) if probs is not None else 1.0,
+                        "box": box,
+                        "track_id": f"{feed_id}:face:{i}",
+                    })
+                _re_eval(feed_id, frame, face_boxes, [])
+            except Exception as _re:
+                print(f"[RuleEngine] eval error: {_re}")
 
             # Return all faces so engine can blur non-targets in privacy mode
             return one_is_match, all_results

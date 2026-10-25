@@ -47,6 +47,24 @@ const ToggleRow: React.FC<{ icon: React.ReactNode; label: string; desc: string; 
   </div>
 );
 
+const SURVEILLANCE_CLASSES = [
+  { name: 'person', defaultPct: 40 },
+  { name: 'knife', defaultPct: 30 },
+  { name: 'scissors', defaultPct: 30 },
+  { name: 'baseball bat', defaultPct: 35 },
+  { name: 'backpack', defaultPct: 45 },
+  { name: 'suitcase', defaultPct: 45 },
+  { name: 'handbag', defaultPct: 45 },
+  { name: 'cell phone', defaultPct: 50 },
+  { name: 'laptop', defaultPct: 50 },
+  { name: 'sports ball', defaultPct: 50 },
+  { name: 'car', defaultPct: 60 },
+  { name: 'motorcycle', defaultPct: 60 },
+  { name: 'truck', defaultPct: 60 },
+  { name: 'bus', defaultPct: 60 },
+  { name: 'bicycle', defaultPct: 60 },
+] as const;
+
 const SettingsPage: React.FC = () => {
   const {
     username, userEmail,
@@ -230,42 +248,45 @@ const SettingsPage: React.FC = () => {
                   <div className="flex items-center gap-2 py-8 justify-center text-xs" style={{ color: 'var(--color-outline)' }}>
                     <RefreshCw className="w-4 h-4 animate-spin" /> Loading classes...
                   </div>
-                ) : classThresholds.length === 0 ? (
-                  <p className="text-center py-6 text-xs" style={{ color: 'var(--color-outline)' }}>No detection classes found</p>
                 ) : (
                   <div className="space-y-5">
-                    {classThresholds.map(cls => (
-                      <div key={cls.name}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Volume2 className="w-3 h-3" style={{ color: cls.sound_enabled ? '#47607e' : 'rgba(186,26,26,0.25)' }} />
-                            <span className="text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>{cls.name}</span>
+                    {SURVEILLANCE_CLASSES.map(({ name, defaultPct }) => {
+                      const cls = classThresholds.find(c => c.name === name);
+                      const threshold = cls ? cls.threshold : defaultPct / 100;
+                      const soundEnabled = cls ? cls.sound_enabled : false;
+                      return (
+                        <div key={name}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Volume2 className="w-3 h-3" style={{ color: soundEnabled ? '#47607e' : 'rgba(186,26,26,0.25)' }} />
+                              <span className="text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>{name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-bold tabular-nums" style={{ color: '#47607e' }}>
+                                {(threshold * 100).toFixed(0)}%
+                              </span>
+                              <button
+                                onClick={() => handleSoundToggle(name)}
+                                className="relative w-8 h-4 border transition-all duration-300"
+                                style={soundEnabled
+                                  ? { borderColor: '#47607e', background: 'rgba(180,198,248,0.05)' }
+                                  : { borderColor: 'rgba(255,180,171,0.3)' }
+                                }
+                              >
+                                <div className={`absolute top-0.5 bottom-0.5 w-2.5 transition-all duration-300 ${soundEnabled ? 'right-0.5' : 'left-0.5 bg-red-800'}`}
+                                  style={soundEnabled ? { background: '#47607e' } : {}} />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold tabular-nums" style={{ color: '#47607e' }}>
-                              {(cls.threshold * 100).toFixed(0)}%
-                            </span>
-                            <button
-                              onClick={() => handleSoundToggle(cls.name)}
-                              className="relative w-8 h-4 border transition-all duration-300"
-                              style={cls.sound_enabled
-                                ? { borderColor: '#47607e', background: 'rgba(180,198,248,0.05)' }
-                                : { borderColor: 'rgba(255,180,171,0.3)' }
-                              }
-                            >
-                              <div className={`absolute top-0.5 bottom-0.5 w-2.5 transition-all duration-300 ${cls.sound_enabled ? 'right-0.5' : 'left-0.5 bg-red-800'}`}
-                                style={cls.sound_enabled ? { background: '#47607e' } : {}} />
-                            </button>
-                          </div>
+                          <input
+                            type="range" min={0} max={1} step={0.01} value={threshold}
+                            onChange={e => handleThresholdChange(name, parseFloat(e.target.value))}
+                            className="w-full appearance-none h-1.5 rounded-full outline-none cursor-pointer"
+                            style={{ background: `linear-gradient(to right, var(--color-primary) 0%, var(--color-primary) ${threshold * 100}%, var(--color-surface-container) ${threshold * 100}%, var(--color-surface-container) 100%)` }}
+                          />
                         </div>
-                        <input
-                          type="range" min={0} max={1} step={0.01} value={cls.threshold}
-                          onChange={e => handleThresholdChange(cls.name, parseFloat(e.target.value))}
-                          className="w-full appearance-none h-1.5 rounded-full outline-none cursor-pointer"
-                          style={{ background: `linear-gradient(to right, var(--color-primary) 0%, var(--color-primary) ${cls.threshold * 100}%, var(--color-surface-container) ${cls.threshold * 100}%, var(--color-surface-container) 100%)` }}
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     <button
                       onClick={handleSaveThresholds}

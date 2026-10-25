@@ -26,6 +26,16 @@ from identity import resolve_identity
 from alerts import dispatch_alert
 from records import save_detection
 from zones import ZoneManager
+
+# Rule-engine config + multi-channel alert hook (additive)
+from config import OWNER_EMAIL, OWNER_PHONE, ADMIN_EMAIL, ADMIN_PHONE  # noqa: F401
+from rule_engine.alert_hook import evaluate_frame as rule_engine_evaluate_frame  # noqa: F401
+
+# Real-time notification layer (additive)
+from notifications import notification_service
+from notifications.websocket_manager import manager as _notif_manager
+from records.notification_store import load_notifications, ack_notification, save_notification
+
 from database import SessionLocal, Base, engine, User, Setting, Camera, Alert
 from auth import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
 import jwt
@@ -348,13 +358,27 @@ async def retention_cleanup_task():
         # Run cleanup once an hour
         await asyncio.sleep(3600)
 
+async def notification_drain_task():
+    """Broadcast queued notifications via WebSocket."""
+    while True:
+        try:
+            while True:
+                notif = notification_service.notification_queue.get_nowait()
+                await _notif_manager.broadcast(notif)
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+
 # --- LIFESPAN MANAGEMENT ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: load persisted settings then initialise camera
     print("STARTING_AI_SURVIALLANCE_CORE...")
     app.state.is_running = True
-
+    try:
+        set_main_loop(asyncio.get_event_loop())
+    except Exception:
+        pass
     # Load persisted thresholds from DB
     saved_thresholds = _db_get("class_thresholds")
     if saved_thresholds:
@@ -381,6 +405,7 @@ async def lifespan(app: FastAPI):
     # Start the background tasks
     asyncio.create_task(alert_broadcaster())
     asyncio.create_task(retention_cleanup_task())
+    asyncio.create_task(notification_drain_task())
 
     yield
     # Shutdown: close all WebRTC peer connections then stop camera
@@ -481,6 +506,16 @@ async def ingest(params: Offer):
 
 camera = CameraEngine(source="auto")
 
+# Snapshot static mount (additive)
+SNAPSHOTS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "snapshots"))
+os.makedirs(SNAPSHOTS_PATH, exist_ok=True)
+app.mount("/snapshots", StaticFiles(directory=SNAPSHOTS_PATH), name="snapshots")
+
+_ws_manager = _notif_manager
+try:
+    os.makedirs(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'snapshots')), exist_ok=True)
+except Exception:
+    pass
 # Rule-engine singletons (additive)
 try:
     _recognizer = ActionRecognizer()
@@ -490,6 +525,8 @@ try:
     _tailgate = TailgateTracker()
     _rule_engine = RuleEngine()
     _zone_mgr = ZoneManager()
+    # Multi-channel alert hook singleton (module self-initializes on import)
+    _rule_alert_hook = rule_engine_evaluate_frame
     print("[RuleEngine] Singletons initialized.")
 except Exception as e:
     print(f"[RuleEngine] Singleton init error: {e}")
@@ -1272,6 +1309,27 @@ def api_rules():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ── Notification endpoints (additive)
+@app.websocket("/ws/notifications")
+async def ws_notifications_endpoint(websocket: WebSocket):
+    await _notif_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        _notif_manager.disconnect(websocket)
+
+
+@app.get("/api/notifications")
+def api_notifications(limit: int = Query(50)):
+    return load_notifications(limit=limit)
+
+
+@app.post("/api/notifications/{notif_id}/ack")
+def api_ack_notification(notif_id: str):
+    return ack_notification(notif_id)
+
 
 if __name__ == "__main__":
     import uvicorn
