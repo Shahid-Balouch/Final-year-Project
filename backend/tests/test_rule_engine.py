@@ -20,7 +20,7 @@ import pytest
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BACKEND_DIR)
 
-TEST_DB_PATH = os.path.join(BACKEND_DIR, "tests", "test_smartsurv.db")
+TEST_DB_PATH = os.path.join(BACKEND_DIR, "tests", "test_AI Surviallance.db")
 
 
 # ---------------------------------------------------------------------------

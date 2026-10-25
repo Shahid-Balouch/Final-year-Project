@@ -1,7 +1,7 @@
 import sqlite3
 import json
 
-conn = sqlite3.connect('smartsurv.db')
+conn = sqlite3.connect('AI Surviallance.db')
 cursor = conn.cursor()
 cursor.execute("SELECT id, timestamp, backend_ts, detections FROM alerts ORDER BY id DESC LIMIT 5")
 rows = cursor.fetchall()
