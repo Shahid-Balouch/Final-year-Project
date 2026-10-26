@@ -57,6 +57,18 @@ class Alert(Base):
     location_lat = Column(String, nullable=True)
     location_lon = Column(String, nullable=True)
 
+
+class Staff(Base):
+    """Staff members registered for face recognition with zone-based access control."""
+    __tablename__ = "staff"
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # owner, manager, guard, employee
+    face_embedding = Column(Text, nullable=False)  # JSON list of floats
+    allowed_zones = Column(Text, nullable=False, default='["all"]')  # JSON list of zone labels
+    active = Column(Boolean, default=True)
+
+
 Base.metadata.create_all(bind=engine)
 
 # --- SQLite migration: add new columns to existing tables if missing ---
@@ -90,6 +102,19 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE cameras ADD COLUMN grid_position INTEGER DEFAULT 0"))
             if "is_visible" not in existing_cams:
                 conn.execute(text("ALTER TABLE cameras ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT 1"))
+
+        # staff table — create if missing
+        if not inspector.has_table("staff"):
+            conn.execute(text("""
+                CREATE TABLE staff (
+                    id VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    role VARCHAR NOT NULL,
+                    face_embedding TEXT NOT NULL,
+                    allowed_zones TEXT NOT NULL DEFAULT '["all"]',
+                    active BOOLEAN NOT NULL DEFAULT 1
+                )
+            """))
 
         conn.commit()
 

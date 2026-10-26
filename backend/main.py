@@ -559,6 +559,15 @@ except Exception as e:
     _rule_engine = globals().get("_rule_engine")
     _zone_mgr = globals().get("_zone_mgr")
 
+# Staff singleton
+try:
+    from identity.staff_db import load_staff
+    _staff_db = load_staff()
+    print(f"[Staff] Loaded {len(_staff_db)} staff members.")
+except Exception as e:
+    print(f"[Staff] Init error: {e}")
+    _staff_db = []
+
 # --- URL / Online Cameras ---
 def _seed_cameras_from_json():
     """Seed the cameras table from cameras.json on first startup if table is empty."""

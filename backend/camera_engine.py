@@ -303,7 +303,7 @@ class CameraFeed:
                 cv2.putText(display_frame, f"{inf_tag} | {fps_tag}", (12, 22),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 255, 133), 1, cv2.LINE_AA)
 
-                self.engine._handle_alerts(self.feed_id, display_frame, self.last_detections, self.last_is_target_match)
+                self.engine._handle_alerts(self.feed_id, display_frame, self.last_detections, self.last_is_target_match, getattr(self, 'last_face_results', []))
 
                 # ── Update latest raw frame for WebRTC ───────────────────────
                 self.latest_frame = display_frame
@@ -543,7 +543,7 @@ class CameraEngine:
             print(f"[Email] Alert sent for {feed_id}")
         except Exception as e: print(f"[Email] Error: {e}")
 
-    def _handle_alerts(self, feed_id, display_frame, detections, is_search_match):
+    def _handle_alerts(self, feed_id, display_frame, detections, is_search_match, identity_infos=None):
         now = time.time()
         triggered = False
         
@@ -614,6 +614,34 @@ class CameraEngine:
                     print(f"[Alert] Queued — feed={feed_id} reason={reason} (q:{self.alert_queue.qsize()})")
                 except Exception as e:
                     print(f"[Alert] Error building alert: {e}")
+
+        # Staff zone violation check via rule engine
+        try:
+            from rule_engine.alert_hook import evaluate_frame as _re_eval
+            staff_detections = []
+            if identity_infos:
+                for i, det in enumerate(detections or []):
+                    if det.get("label", "").lower() != "person":
+                        continue
+                    ii = identity_infos[i] if i < len(identity_infos) else {}
+                    if ii.get("identity") != "staff":
+                        continue
+                    staff_detections.append({
+                        "label": "person",
+                        "confidence": float(det.get("confidence", 0)),
+                        "box": det.get("box", [0, 0, 0, 0]),
+                        "track_id": f"{feed_id}:staff:{i}",
+                        "identity_info": ii,
+                    })
+            if staff_detections:
+                ctx = {
+                    "camera": feed_id,
+                    "timestamp": now,
+                    "zone": {},  # Will be populated by rule_engine hook from ZoneManager
+                }
+                _re_eval(feed_id, frame, staff_detections, [])
+        except Exception as _re:
+            print(f"[RuleEngine] staff eval error: {_re}")
 
     def _process_detections(self, frame):
         detections = []
@@ -699,6 +727,17 @@ class CameraEngine:
                         self._process_reid(embedding, feed_id, face_crop_b64=face_crop)
                         return f"TARGET: {best_match}", [int(b) for b in boxes[i]]
 
+                # 1.5 Staff match
+                if self.mode in ["search", "both"]:
+                    try:
+                        from identity.resolver import resolve_identity
+                        staff_info = resolve_identity(emb.detach().cpu().tolist())
+                        if staff_info.get("identity") == "staff":
+                            self._process_reid(embedding, feed_id, face_crop_b64=face_crop)
+                            return f"STAFF: {staff_info.get('name')}", [int(b) for b in boxes[i]]
+                    except Exception:
+                        pass
+
                 # 2. Re-ID — always run so persons panel is populated in any mode
                 reid_match = self._process_reid(embedding, feed_id, face_crop_b64=face_crop, frame=frame, box=boxes[i])
                 if reid_match:
@@ -711,10 +750,16 @@ class CameraEngine:
             # Face count is typically 1-3, so loop overhead is negligible.
             for i, emb in enumerate(embeddings):
                 res = _match_face_task(i, emb)
-                # Real-time unknown-person notification (additive, non-blocking)
+                # Get identity info for rule engine
                 try:
                     from identity.resolver import resolve_identity
-                    if resolve_identity(emb.detach().cpu().tolist()).get("identity") == "unknown":
+                    identity_info = resolve_identity(emb.detach().cpu().tolist())
+                except Exception:
+                    identity_info = {"identity": "unknown", "name": None, "role": None, "allowed_zones": []}
+
+                # Real-time unknown-person notification (additive, non-blocking)
+                try:
+                    if identity_info.get("identity") == "unknown":
                         from notifications.detector_hook import notify_unknown
                         notify_unknown(frame, boxes[i], feed_id)
                 except Exception:
@@ -723,14 +768,17 @@ class CameraEngine:
                     label, box = res
                     pid = label.split(":")[-1].strip()
                     is_target = "TARGET" in label
+                    is_staff = "STAFF" in label
                     is_focused = (pid == self.focused_person_id)
                     all_results.append({
                         "id": pid,
                         "box": box,
                         "is_target": is_target,
-                        "is_focused": is_focused
+                        "is_staff": is_staff,
+                        "is_focused": is_focused,
+                        "identity_info": identity_info,
                     })
-                    if is_target or is_focused: one_is_match = True
+                    if is_target or is_staff or is_focused: one_is_match = True
 
             # Real-time unknown-person notification (additive, non-blocking enqueue)
             try:
@@ -771,17 +819,22 @@ class CameraEngine:
             except Exception as _ne:
                 print(f'[Notify] error: {_ne}')
 
+            # Store face results with identity info for rule engine
+            self.last_face_results = all_results
+
             # Additive: rule-engine + multi-channel alert dispatch (person/weapon/abandoned/phone/vehicle)
             try:
                 from rule_engine.alert_hook import evaluate_frame as _re_eval
                 face_boxes = []
                 for i, emb in enumerate(embeddings):
                     box = [float(v) for v in boxes[i]]
+                    ii = all_results[i] if i < len(all_results) else {}
                     face_boxes.append({
                         "label": "person",
                         "confidence": float(probs[i]) if probs is not None else 1.0,
                         "box": box,
                         "track_id": f"{feed_id}:face:{i}",
+                        "identity_info": ii.get("identity_info", {}),
                     })
                 _re_eval(feed_id, frame, face_boxes, [])
             except Exception as _re:

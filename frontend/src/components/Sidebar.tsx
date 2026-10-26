@@ -12,6 +12,7 @@ const navItems = [
   { icon: Bell,       label: 'Alerts',    path: '/dashboard/alerts' },
   { icon: BarChart2,  label: 'Analytics', path: '/dashboard/analytics' },
   { icon: Target,     label: 'Watchlist', path: '/dashboard/watchlist' },
+  { icon: Users,      label: 'Staff',     path: '/dashboard/staff' },
 ];
 
 const bottomItems = [

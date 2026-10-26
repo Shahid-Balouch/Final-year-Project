@@ -16,6 +16,7 @@ import UsersPage from './pages/dashboard/UsersPage';
 import CamerasPage from './pages/dashboard/CamerasPage';
 import OrganizationFeed from './pages/dashboard/OrganizationFeed';
 import OrganizationControls from './pages/dashboard/OrganizationControls';
+import StaffPage from './pages/dashboard/StaffPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = localStorage.getItem('token');
@@ -49,6 +50,7 @@ const AnimatedRoutes = () => {
           <Route path="alerts" element={<AlertsLog />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="watchlist" element={<WatchlistPage />} />
+          <Route path="staff" element={<StaffPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="cameras" element={<CamerasPage />} />
           <Route path="system" element={<SystemHealth />} />

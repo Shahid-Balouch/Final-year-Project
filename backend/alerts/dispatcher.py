@@ -58,14 +58,36 @@ def _sms(to, msg):
 def dispatch_alert(payload):
     msg = payload.get("message", "")
     priority = payload.get("priority", "low")
+    role = payload.get("role", "unknown")  # staff role: owner, manager, guard, employee
+    identity = payload.get("identity", "unknown")
+
     to_wa = os.getenv("OWNER_WHATSAPP", "+92XXXXXXXXXX")
     to_email = os.getenv("OWNER_EMAIL", "owner@example.com")
     to_sms = os.getenv("OWNER_SMS")
     _dashboard(msg)
+
+    # Determine recipients based on identity and role
+    recipients = set()
+    if identity == "unknown":
+        recipients = {"owner", "manager", "guard"}
+    elif identity == "staff":
+        if role == "guard":
+            recipients = {"owner", "manager"}
+        elif role == "employee":
+            recipients = {"owner", "manager", "guard"}
+        elif role == "manager":
+            recipients = {"owner"}
+        elif role == "owner":
+            recipients = {"owner"}
+
+    # Route based on severity and recipients
     if priority in ("medium", "high", "critical"):
-        _wa(to_wa, msg)
-    if priority in ("high", "critical"):
-        _email(to_email, msg)
-    if priority == "critical" and to_sms:
-        _sms(to_sms, msg)
+        if "owner" in recipients:
+            _wa(to_wa, msg)
+        if priority in ("high", "critical"):
+            if "owner" in recipients:
+                _email(to_email, msg)
+        if priority == "critical" and to_sms:
+            if "owner" in recipients:
+                _sms(to_sms, msg)
     return True

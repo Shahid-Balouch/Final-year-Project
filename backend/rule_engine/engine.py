@@ -87,6 +87,13 @@ class RuleEngine:
             return bool(ctx.get("abandoned_object"))
         if "shoplift" in name or "suspicious" in name:
             return bool(ctx.get("suspicious_behavior"))
+        if "staff_unauthorized_zone" in name:
+            # Staff in unauthorized zone — check if staff's allowed_zones contains current zone
+            allowed_zones = ctx.get("allowed_zones") or []
+            zone_label = zone.get("label") or zone.get("id") or "unknown"
+            if identity == "staff" and allowed_zones and "all" not in allowed_zones and zone_label not in allowed_zones:
+                return True
+            return False
         return False
 
     def evaluate(self, identity_info, ctx):
