@@ -1,0 +1,26 @@
+{
+  "cam_1": {
+    "name": "Main Entrance",
+    "type": "company",
+    "zones": [
+      {
+        "id": "server_room",
+        "label": "Server Room",
+        "polygon": [[400,300],[900,300],[900,700],[400,700]],
+        "allowed_roles": ["owner","it_admin"],
+        "mask_required": false,
+        "after_hours": {"start":"20:00","end":"07:00"},
+        "severity_override": "critical",
+        "crowd_limit": 4
+      },
+      {
+        "id": "lobby",
+        "label": "Lobby",
+        "polygon": [[0,0],[400,0],[400,800],[0,800]],
+        "allowed_roles": ["all"],
+        "mask_required": false,
+        "crowd_limit": 15
+      }
+    ]
+  }
+}

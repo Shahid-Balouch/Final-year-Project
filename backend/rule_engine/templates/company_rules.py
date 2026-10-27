@@ -1,0 +1,31 @@
+COMPANY_ZONES = {
+    "reception": {"allowed_roles": ["all"], "mask_required": False},
+    "cubicles": {"allowed_roles": ["all"], "mask_required": False},
+    "server_room": {"allowed_roles": ["owner", "it_admin"], "mask_required": False, "after_hours": {"start": "20:00", "end": "07:00"}, "severity_override": "critical"},
+    "finance": {"allowed_roles": ["owner", "accountant", "cfo"], "mask_required": False, "severity_override": "critical"},
+    "hr": {"allowed_roles": ["owner", "hr_manager", "hr_exec"], "mask_required": False, "severity_override": "high"},
+    "ceo_cabin": {"allowed_roles": ["owner", "ceo", "pa_to_ceo"], "mask_required": False, "severity_override": "critical"},
+    "records_room": {"allowed_roles": ["owner", "records_officer"], "mask_required": False, "severity_override": "high"},
+    "production": {"allowed_roles": ["all"], "mask_required": True, "severity_override": "medium"},
+    "canteen": {"allowed_roles": ["all"], "mask_required": False, "crowd_limit": 40},
+    "parking": {"allowed_roles": ["all"], "mask_required": False, "loiter_seconds": 600},
+    "it_room": {"allowed_roles": ["owner", "it_admin"], "mask_required": False, "severity_override": "critical"},
+    "security_cabin": {"allowed_roles": ["owner", "security"], "mask_required": False, "severity_override": "high"},
+}
+
+COMPANY_RULES = [
+    {"name": "unauthorized_zone_entry", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": [], "description": "Entry to a zone not allowed for this role."},
+    {"name": "after_hours_office", "severity": "high", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "security"], "description": "Presence after office hours."},
+    {"name": "server_room_access", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "it_admin"], "description": "Unauthorized server room access."},
+    {"name": "finance_dept_access", "severity": "critical", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "accountant", "cfo"], "description": "Unauthorized finance access."},
+    {"name": "no_mask_production", "severity": "medium", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Missing mask in production zone."},
+    {"name": "fall_detected", "severity": "high", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Person fallen."},
+    {"name": "fire_smoke", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Fire or smoke detected."},
+    {"name": "fight", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Fight detected."},
+    {"name": "weapon", "severity": "critical", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": ["security"], "description": "Weapon detected."},
+    {"name": "tailgating", "severity": "high", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner"], "description": "Tailgating detected."},
+    {"name": "loitering_parking", "severity": "medium", "applies_to": ["unknown"], "exempt_roles": [], "description": "Loitering in parking."},
+    {"name": "loitering_lobby", "severity": "low", "applies_to": ["unknown"], "exempt_roles": [], "description": "Loitering in lobby."},
+    {"name": "crowd_canteen", "severity": "medium", "applies_to": ["owner", "staff", "unknown"], "exempt_roles": [], "description": "Crowd threshold exceeded."},
+    {"name": "unauthorized_exit", "severity": "high", "applies_to": ["staff", "unknown"], "exempt_roles": ["owner", "security"], "description": "Unauthorized exit."},
+]
