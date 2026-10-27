@@ -391,7 +391,7 @@ const StaffPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.92, y: 16 }}
               transition={{ type: 'spring', damping: 26, stiffness: 220 }}
               onClick={e => e.stopPropagation()}
-              className="relative w-full max-w-md flex flex-col overflow-hidden z-10 rounded-3xl"
+              className="relative w-full max-w-md flex flex-col overflow-y-auto max-h-[90vh] z-10 rounded-3xl"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline-variant)', boxShadow: '0 8px 32px rgba(0,0,0,0.08)', maxHeight: '85vh' }}
             >
               <div className="p-6">
@@ -450,7 +450,7 @@ const StaffPage: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                    <p className="text-[9px] text-[var(--color-outline)]">Comma-separated zone labels (e.g., Lobby, Server Room). Leave empty for all zones.</p>
+                    <p className="text-[9px] text-[var(--color-outline)]">Select the zones this staff member is allowed to access.</p>
                   </div>
 
                   <div className="space-y-3">
@@ -594,7 +594,7 @@ const StaffPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.92, y: 16 }}
               transition={{ type: 'spring', damping: 26, stiffness: 220 }}
               onClick={e => e.stopPropagation()}
-              className="relative w-full max-w-md flex flex-col overflow-hidden z-10 rounded-3xl"
+              className="relative w-full max-w-md flex flex-col overflow-y-auto max-h-[90vh] z-10 rounded-3xl"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline-variant)', boxShadow: '0 8px 32px rgba(0,0,0,0.08)', maxHeight: '85vh' }}
             >
               <div className="p-6">
@@ -653,7 +653,7 @@ const StaffPage: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                    <p className="text-[9px] text-[var(--color-outline)]">Comma-separated zone labels.</p>
+                    <p className="text-[9px] text-[var(--color-outline)]">Select the zones this staff member is allowed to access.</p>
                   </div>
 
                   <button
@@ -688,7 +688,7 @@ const StaffPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.92, y: 16 }}
               transition={{ type: 'spring', damping: 26, stiffness: 220 }}
               onClick={e => e.stopPropagation()}
-              className="relative w-full max-w-md flex flex-col overflow-hidden z-10 rounded-3xl"
+              className="relative w-full max-w-md flex flex-col overflow-y-auto max-h-[90vh] z-10 rounded-3xl"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-outline-variant)', boxShadow: '0 8px 32px rgba(0,0,0,0.08)', maxHeight: '85vh' }}
             >
               <div className="p-6">
