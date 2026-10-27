@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Trash2, X, Pencil, AlertTriangle, Shield, ArrowRight,
 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+
 import { API } from '../../types/dashboard';
 
 type StaffMember = {
@@ -19,8 +19,6 @@ type StaffMember = {
 type AddMode = 'upload' | 'camera';
 
 const StaffPage: React.FC = () => {
-  const { username: _username } = useApp() as any;
-
   // Staff state
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,9 +29,11 @@ const StaffPage: React.FC = () => {
   const [addMode, setAddMode] = useState<AddMode>('upload');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('employee');
-  const [newAllowedZones, setNewAllowedZones] = useState('');
+  const [newAllowedZones, setNewAllowedZones] = useState<string[]>([]);
   const [newPreview, setNewPreview] = useState<string | null>(null);
   const [isLoadingAdd, setIsLoadingAdd] = useState(false);
+
+  const allowedZonesOptions = ['Lobby', 'Server Room', 'Cash Office', 'Parking', 'Main Gate'];
 
   // Camera capture state
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -41,6 +41,7 @@ const StaffPage: React.FC = () => {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState('');
   const [captured, setCaptured] = useState<string | null>(); // base64 dataURL
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -133,7 +134,7 @@ const StaffPage: React.FC = () => {
       const formData = new FormData();
       formData.append('name', newName.trim());
       formData.append('role', newRole);
-      formData.append('allowed_zones', newAllowedZones);
+      formData.append('allowed_zones', newAllowedZones.join(','));
 
       // Convert base64 to blob for upload
       const response = await fetch(faceImage);
@@ -152,7 +153,7 @@ const StaffPage: React.FC = () => {
       setIsAdding(false);
       setNewName('');
       setNewRole('employee');
-      setNewAllowedZones('');
+      setNewAllowedZones([]);
       setNewPreview(null);
       setCaptured(null);
       stopCamera();
@@ -206,7 +207,7 @@ const StaffPage: React.FC = () => {
 
       const faceImage = newPreview || captured;
       if (faceImage) {
-        const response = await fetch(faceImage);
+        const response = await fetch(faceImage!);
         const blob = await response.blob();
         formData.append('image', blob, 'face.jpg');
       }
@@ -430,12 +431,25 @@ const StaffPage: React.FC = () => {
 
                   <div className="space-y-3">
                     <label className="text-[9px] font-bold tracking-widest uppercase" style={{ color: 'var(--color-outline)' }}>Allowed Zones</label>
-                    <input
-                      type="text" value={newAllowedZones} onChange={e => setNewAllowedZones(e.target.value)}
-                      placeholder="Lobby, Server Room, Cash Office"
-                      className="w-full px-4 py-2.5 text-xs rounded-xl"
-                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface)', outline: 'none' }}
-                    />
+                    <div className="flex flex-wrap gap-3">
+                      {allowedZonesOptions.map(zone => (
+                        <div key={zone} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={newAllowedZones.includes(zone)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setNewAllowedZones([...newAllowedZones, zone]);
+                              } else {
+                                setNewAllowedZones(newAllowedZones.filter(z => z !== zone));
+                              }
+                            }}
+                            className="w-4 h-4 text-[var(--color-primary)] border-[var(--color-outline-variant)] rounded bg-transparent"
+                          />
+                          <span className="text-xs text-[var(--color-on-surface)]">{zone}</span>
+                        </div>
+                      ))}
+                    </div>
                     <p className="text-[9px] text-[var(--color-outline)]">Comma-separated zone labels (e.g., Lobby, Server Room). Leave empty for all zones.</p>
                   </div>
 
@@ -443,11 +457,25 @@ const StaffPage: React.FC = () => {
                     <label className="text-[9px] font-bold tracking-widest uppercase" style={{ color: 'var(--color-outline)' }}>Face Photo</label>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => { setAddMode('upload'); setNewPreview(null); setCaptured(null); stopCamera(); }}
+                        onClick={() => { fileInputRef.current?.click(); setAddMode('upload'); setNewPreview(null); setCaptured(null); stopCamera(); }}
                         className={`flex-1 py-3 text-[10px] font-bold tracking-widest transition-all rounded-xl ${addMode === 'upload' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white border-[var(--color-outline-variant)] text-[var(--color-on-surface)]'}`}
                       >
                         Upload Photo
                       </button>
+                      <input
+                        type="file" accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            setNewPreview(ev.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
                       <button
                         onClick={() => { setAddMode('camera'); setNewPreview(null); setCaptured(null); startCamera(); }}
                         className={`flex-1 py-3 text-[10px] font-bold tracking-widest transition-all rounded-xl ${addMode === 'camera' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'bg-white border-[var(--color-outline-variant)] text-[var(--color-on-surface)]'}`}
@@ -493,7 +521,7 @@ const StaffPage: React.FC = () => {
                           )}
                           {captured && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                              <img src={captured} className="max-w-full max-h-full" alt="Captured" />
+                              <img src={captured || ''} className="max-w-full max-h-full" alt="Captured" />
                               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                                 <button onClick={capturePhoto} className="px-4 py-2 bg-white text-black font-bold rounded">Retake</button>
                                 <button onClick={() => { setNewPreview(captured); stopCamera(); }} className="px-4 py-2 bg-green-600 text-white font-bold rounded">Use Photo</button>
@@ -605,12 +633,26 @@ const StaffPage: React.FC = () => {
 
                   <div className="space-y-3">
                     <label className="text-[9px] font-bold tracking-widest uppercase" style={{ color: 'var(--color-outline)' }}>Allowed Zones</label>
-                    <input
-                      type="text" value={editZones} onChange={e => setEditZones(e.target.value)}
-                      placeholder="Lobby, Server Room"
-                      className="w-full px-4 py-2.5 text-xs rounded-xl"
-                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface)', outline: 'none' }}
-                    />
+                    <div className="flex flex-wrap gap-3">
+                      {allowedZonesOptions.map(zone => (
+                        <div key={zone} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={editZones.split(',').map(z => z.trim()).includes(zone)}
+                            onChange={(e) => {
+                              const zones = editZones.split(',').map(z => z.trim()).filter(Boolean);
+                              if (e.target.checked) {
+                                setEditZones([...zones, zone].join(', '));
+                              } else {
+                                setEditZones(zones.filter(z => z !== zone).join(', '));
+                              }
+                            }}
+                            className="w-4 h-4 text-[var(--color-primary)] border-[var(--color-outline-variant)] rounded bg-transparent"
+                          />
+                          <span className="text-xs text-[var(--color-on-surface)]">{zone}</span>
+                        </div>
+                      ))}
+                    </div>
                     <p className="text-[9px] text-[var(--color-outline)]">Comma-separated zone labels.</p>
                   </div>
 
