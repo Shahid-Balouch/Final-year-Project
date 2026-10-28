@@ -37,6 +37,7 @@ const AppLayout: React.FC = () => {
 
   // --- Core state ---
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [detectedPersons, setDetectedPersons] = useState<PersonEvent[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonEvent | null>(null);
   const [isConnected, setIsConnected] = useState(false);
