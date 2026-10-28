@@ -98,9 +98,6 @@ const AppLayout: React.FC = () => {
 
   const [dataSettings, setDataSettings] = useState({ display_days: 1, retention_days: 30 });
 
-  // Analytics state
-    alertAudioRef.current.load();
-  }, []);
 
   const playAlertSound = useCallback(() => {
     if (!browserSoundEnabled || !alertAudioRef.current) return;
