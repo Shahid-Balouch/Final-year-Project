@@ -18,6 +18,11 @@ const Analytics: React.FC = () => {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  // Safely access analytics data with fallbacks to prevent crashes when data is null/undefined
+  const peakHours = analytics?.peakHours || [];
+  const zoneHeatmap = analytics?.zoneHeatmap || [];
+
+
   const getSeverity = (a: Alert) => {
     if (a.is_person_search_match) return 'MATCH';
     const labels = a.detections.map(d => d.label.toLowerCase());
@@ -211,9 +216,9 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <div className="h-[300px]">
-                {analytics?.peakHours.length ? (
+                {peakHours.length ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.peakHours} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                    <BarChart data={peakHours} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
                       <XAxis dataKey="hour" tick={{ fill: 'var(--color-outline)', fontSize: 9, fontWeight: 700 }} axisLine={false} />
                       <YAxis tick={{ fill: 'var(--color-outline)', fontSize: 9, fontWeight: 700 }} axisLine={false} allowDecimals={false} />
@@ -237,11 +242,11 @@ const Analytics: React.FC = () => {
                     <p className="text-xs font-bold text-[var(--color-on-surface)]">ALERTS_BY_ZONE</p>
                   </div>
                 </div>
-                <p className="text-[9px] font-bold text-[var(--color-outline)]">{analytics?.zoneHeatmap.length} zones</p>
+                <p className="text-[9px] font-bold text-[var(--color-outline)]">{zoneHeatmap.length} zones</p>
               </div>
               <div className="grid grid-cols-3 gap-4">
-                {analytics?.zoneHeatmap.length ? (
-                  analytics.zoneHeatmap.map((z, i) => (
+                {zoneHeatmap.length ? (
+                  zoneHeatmap.map((z, i) => (
                     <div key={i} className="p-4 rounded-2xl flex items-center justify-between"
                       style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}>
                       <div>
@@ -249,7 +254,7 @@ const Analytics: React.FC = () => {
                         <p className="text-2xl font-black" style={{ color: 'var(--color-on-surface)' }}>{z.count}</p>
                       </div>
                       <div className="w-24 h-6 bg-[var(--color-surface-container)] rounded-full overflow-hidden">
-                        <div className="h-full" style={{ width: `${Math.min(100, (z.count / Math.max(1, ...analytics.zoneHeatmap.map(z => z.count)))) * 100}%`, background: 'var(--color-primary)' }} />
+                        <div className="h-full" style={{ width: `${Math.min(100, (z.count / Math.max(1, ...zoneHeatmap.map(z => z.count)))) * 100}%`, background: 'var(--color-primary)' }} />
                       </div>
                     </div>
                   ))

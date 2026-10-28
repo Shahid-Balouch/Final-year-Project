@@ -46,6 +46,23 @@ const AppLayout: React.FC = () => {
   const [activeFeeds, setActiveFeeds] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
+  const [analytics, setAnalytics] = useState<{
+    peakHours: { hour: string; count: number }[];
+    zoneHeatmap: { zone: string; count: number }[];
+    summary: {
+      total_persons_detected_today: number;
+      total_unknown_persons_today: number;
+      alerts_by_severity: { low: number; medium: number; high: number; critical: number };
+      total_alerts_today: number;
+    } | null;
+    analyticsLoading: boolean;
+  }>({
+    peakHours: [],
+    zoneHeatmap: [],
+    summary: null,
+    analyticsLoading: false,
+  });
+
   const [currentSource, setCurrentSource] = useState<'0' | 'remote' | 'hybrid'>(
     (localStorage.getItem('currentSource') as '0' | 'remote' | 'hybrid') || '0'
   );
@@ -82,52 +99,6 @@ const AppLayout: React.FC = () => {
   const [dataSettings, setDataSettings] = useState({ display_days: 1, retention_days: 30 });
 
   // Analytics state
-  const [analytics, setAnalytics] = useState<{
-    peakHours: { hour: string; count: number }[];
-    zoneHeatmap: { zone: string; count: number }[];
-    summary: {
-      total_persons_detected_today: number;
-      total_unknown_persons_today: number;
-      alerts_by_severity: { low: number; medium: number; high: number; critical: number };
-      total_alerts_today: number;
-    } | null;
-    analyticsLoading: boolean;
-  }>({
-    peakHours: [],
-    zoneHeatmap: [],
-    summary: null,
-    analyticsLoading: false,
-  });
-
-  const fetchAnalytics = async () => {
-    setAnalytics(prev => ({ ...prev, analyticsLoading: true }));
-    try {
-      const [peakRes, zoneRes, summaryRes] = await Promise.all([
-        fetch(`${API}/api/analytics/peak-hours`),
-        fetch(`${API}/api/analytics/zone-heatmap`),
-        fetch(`${API}/api/analytics/summary`),
-      ]);
-      const peakData = await peakRes.json();
-      const zoneData = await zoneRes.json();
-      const summaryData = await summaryRes.json();
-      setAnalytics({
-        peakHours: peakData.peak_hours || [],
-        zoneHeatmap: zoneData.zone_heatmap || [],
-        summary: summaryData.summary || summaryData,
-        analyticsLoading: false,
-      });
-    } catch (_) {
-      setAnalytics(prev => ({ ...prev, analyticsLoading: false }));
-    }
-  };
-
-  // â”€â”€ Unread alerts badge â”€â”€
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const [systemLatency, setSystemLatency] = useState<number | null>(null);
-
-  // â”€â”€ Browser Audio â”€â”€
-  useEffect(() => {
-    alertAudioRef.current = new Audio('/alert.mp3');
     alertAudioRef.current.load();
   }, []);
 
@@ -162,6 +133,30 @@ const AppLayout: React.FC = () => {
       .then(d => { if (Array.isArray(d)) setAlerts(d); })
       .catch(() => {});
   }, []);
+
+  const fetchAnalytics = async () => {
+    setAnalytics(prev => ({ ...prev, analyticsLoading: true }));
+    try {
+      const [peakRes, zoneRes, summaryRes] = await Promise.all([
+        fetch(`${API}/api/analytics/peak-hours`),
+        fetch(`${API}/api/analytics/zone-heatmap`),
+        fetch(`${API}/api/analytics/summary`),
+      ]);
+      const [peakData, zoneData, summaryData] = await Promise.all([
+        peakRes.json(),
+        zoneRes.json(),
+        summaryRes.json(),
+      ]);
+      setAnalytics({
+        peakHours: peakData.peak_hours || [],
+        zoneHeatmap: zoneData.zone_heatmap || [],
+        summary: summaryData.summary || summaryData,
+        analyticsLoading: false,
+      });
+    } catch (e) {
+      setAnalytics(prev => ({ ...prev, analyticsLoading: false }));
+    }
+  };
 
   useEffect(() => {
     fetch(`${API}/api/system/info`)

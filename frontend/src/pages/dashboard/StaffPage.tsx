@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 
 import { API } from '../../types/dashboard';
-import { useApp } from '../../context/AppContext';
 
 type StaffMember = {
   id: string;
