@@ -44,6 +44,7 @@ const AppLayout: React.FC = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [isCameraToggling, setIsCameraToggling] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [systemLatency, setSystemLatency] = useState<number | null>(null);
   const [activeFeeds, setActiveFeeds] = useState<string[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
