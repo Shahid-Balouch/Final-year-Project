@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, RefreshCw, Bell, User, LogOut, Power, Shield, Activity, MapPin, X } from 'lucide-react';
@@ -133,7 +133,7 @@ const AppLayout: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setAnalytics(prev => ({ ...prev, analyticsLoading: true }));
     try {
       const [peakRes, zoneRes, summaryRes] = await Promise.all([
@@ -155,7 +155,7 @@ const AppLayout: React.FC = () => {
     } catch (e) {
       setAnalytics(prev => ({ ...prev, analyticsLoading: false }));
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetch(`${API}/api/system/info`)

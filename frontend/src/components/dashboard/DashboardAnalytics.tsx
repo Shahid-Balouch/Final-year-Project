@@ -278,7 +278,7 @@ const DashboardAnalytics: React.FC<Props> = ({ alerts, detectedPersons, isConnec
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.03)" vertical={false} />
                 <XAxis dataKey="hour" tick={{ fill: 'var(--color-outline)', fontSize: 8, fontWeight: 700 }} tickLine={false} axisLine={false} interval={2} />
                 <YAxis tick={{ fill: 'var(--color-outline)', fontSize: 8, fontWeight: 700 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={CustomTooltip} />
                 <Area type="monotone" dataKey="alerts" name="ALERTS" stroke="var(--color-primary)" strokeWidth={2.5} fill="url(#gAlert)" />
                 <Area type="monotone" dataKey="critical" name="CRITICAL" stroke="#ff4466" strokeWidth={2.5} fill="url(#gCrit)" />
                 <Area type="monotone" dataKey="persons" name="PERSONS" stroke="#a855f7" strokeWidth={2} fill="transparent" strokeDasharray="4 4" />
@@ -361,7 +361,7 @@ const DashboardAnalytics: React.FC<Props> = ({ alerts, detectedPersons, isConnec
                                 tickLine={false}
                                 allowDecimals={false}
                             />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                            <Tooltip content={CustomTooltip} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
                             <Bar dataKey="count" name="DETECTIONS" radius={[4, 4, 0, 0]} barSize={30}>
                                 {data.activityBreakdown.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -417,7 +417,7 @@ const DashboardAnalytics: React.FC<Props> = ({ alerts, detectedPersons, isConnec
                         tickLine={false}
                     />
                     <ZAxis type="number" dataKey="size" range={[50, 400]} />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={CustomTooltip} />
                     <Scatter
                         name="Detections"
                         data={data.scatterData}

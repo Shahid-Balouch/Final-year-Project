@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -13,10 +13,12 @@ const Analytics: React.FC = () => {
   const [tab, setTab] = useState<'charts' | 'live'>('charts');
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [viewingAlert, setViewingAlert] = useState<Alert | null>(null);
+  const fetchAnalyticsRef = useRef(fetchAnalytics);
+  fetchAnalyticsRef.current = fetchAnalytics;
 
   React.useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchAnalyticsRef.current();
+  }, []);
 
   // Safely access analytics data with fallbacks to prevent crashes when data is null/undefined
   const peakHours = analytics?.peakHours || [];
