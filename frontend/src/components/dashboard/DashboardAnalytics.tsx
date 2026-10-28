@@ -98,18 +98,22 @@ const DashboardAnalytics: React.FC<Props> = ({ alerts, detectedPersons, isConnec
       .sort((a, b) => b.count - a.count);
 
     const scatterData = alerts.flatMap(a => {
-        const timestamp = a.backend_ts ? new Date(a.backend_ts) : new Date(a.timestamp.replace(' ', 'T'));
-        const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
-        const dets = a.detections ?? [];
-        if (dets.length === 0 && a.is_person_search_match) {
-          return [{ hour, confidence: 100, size: 30, label: 'PERSON' }];
+        try {
+          const ts = a.backend_ts ? new Date(a.backend_ts) : new Date((a.timestamp || '').replace(' ', 'T'));
+          const hour = isNaN(ts.getTime()) ? 0 : ts.getHours() + ts.getMinutes() / 60;
+          const dets = a.detections ?? [];
+          if (dets.length === 0 && a.is_person_search_match) {
+            return [{ hour, confidence: 100, size: 30, label: 'PERSON' }];
+          }
+          return dets.map(det => ({
+              hour,
+              confidence: Math.round(det.confidence * 100),
+              size: 10 + (det.confidence * 20),
+              label: det.label.toUpperCase()
+          }));
+        } catch (_) {
+          return [];
         }
-        return dets.map(det => ({
-            hour,
-            confidence: Math.round(det.confidence * 100),
-            size: 10 + (det.confidence * 20),
-            label: det.label.toUpperCase()
-        }));
     }).slice(-100);
 
     const totalDetections = activityBreakdown.reduce((a, b) => a + b.count, 0);
@@ -478,14 +482,15 @@ const DashboardAnalytics: React.FC<Props> = ({ alerts, detectedPersons, isConnec
                   </tr>
                 ) : (
                   [...alerts].reverse().slice(0, 100).map((alert, i) => {
-                    const maxConf = Math.max(...alert.detections.map(d => d.confidence), 0);
+                    const dets = alert.detections ?? [];
+                    const maxConf = Math.max(...dets.map(d => d.confidence), 0);
                     return (
                       <tr key={i} className="group hover:bg-[rgba(36,128,255,0.03)] transition-all">
                         <td className="py-3 px-4 font-bold tabular-nums text-[var(--color-outline-variant)] group-hover:text-[var(--color-primary)]">{(i + 1).toString().padStart(3, '0')}</td>
                         <td className="py-3 px-4 font-mono font-bold text-[var(--color-outline)]">{alert.timestamp}</td>
                         <td className="py-3 px-4">
                           <div className="flex flex-wrap gap-1.5">
-                            {alert.detections.map((d, j) => (
+                            {dets.map((d, j) => (
                               <span key={j} className="border border-[var(--color-outline-variant)] px-2 py-0.5 text-[8px] font-bold text-[var(--color-primary)] group-hover:border-[var(--color-primary)] transition-colors rounded-md">{d.label.toUpperCase()}</span>
                             ))}
                           </div>

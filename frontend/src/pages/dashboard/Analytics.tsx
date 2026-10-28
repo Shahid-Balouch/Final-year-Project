@@ -25,7 +25,8 @@ const Analytics: React.FC = () => {
 
   const getSeverity = (a: Alert) => {
     if (a.is_person_search_match) return 'MATCH';
-    const labels = a.detections.map(d => d.label.toLowerCase());
+    const dets = a.detections ?? [];
+    const labels = dets.map(d => d.label.toLowerCase());
     if (labels.some(l => l.includes('weapon') || l.includes('knife') || l.includes('gun'))) return 'HIGH';
     if (labels.some(l => l.includes('fight') || l.includes('violence'))) return 'MEDIUM';
     return 'LOW';
@@ -133,7 +134,7 @@ const Analytics: React.FC = () => {
                   <div>
                     <p className="text-[9px] uppercase tracking-widest mb-2" style={{ color: 'var(--color-outline)' }}>Detections</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {viewingAlert.detections.map((d, i) => (
+                      {(viewingAlert.detections ?? []).map((d, i) => (
                         <span key={i} className="text-[10px] px-2 py-0.5 font-medium"
                           style={{ background: 'rgba(0,0,0,0.1)', color: 'var(--color-primary)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '0.125rem' }}>
                           {d.label} <span style={{ opacity: 0.5 }}>{Math.round(d.confidence * 100)}%</span>
@@ -352,7 +353,7 @@ const Analytics: React.FC = () => {
                           <span className="text-[9px] ml-auto" style={{ color: 'var(--color-outline)' }}>{alert.timestamp}</span>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {alert.detections.map((d, i) => (
+                          {(alert.detections ?? []).map((d, i) => (
                             <span key={i} className="text-[10px] px-2 py-0.5"
                               style={{ background: 'rgba(36,128,255,0.06)', color: 'var(--color-primary)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '0.125rem' }}>
                               {d.label} <span style={{ opacity: 0.5 }}>{Math.round(d.confidence * 100)}%</span>
