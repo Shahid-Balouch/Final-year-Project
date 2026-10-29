@@ -85,6 +85,25 @@ const AlertsLog: React.FC = () => {
     }
   };
 
+  const handleDownloadDailyPDF = async () => {
+    try {
+      const res = await fetch(`${API}/api/reports/daily-pdf`);
+      if (!res.ok) throw new Error('PDF generation failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `daily_security_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Daily PDF export error', e);
+      alert('Failed to download daily report.');
+    }
+  };
+
   const handleDownloadPDF = (alertToExport?: Alert) => {
     const alertData = alertToExport || viewingAlert;
     if (!alertData) return;
@@ -423,6 +442,15 @@ const AlertsLog: React.FC = () => {
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(36,128,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)'; }}
             >
               <Download className="w-3.5 h-3.5" /> EXPORT CSV
+            </button>
+            <button
+              onClick={handleDownloadDailyPDF}
+              className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold tracking-widest uppercase transition-all rounded-xl"
+              style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.25)', color: '#ba1a1a' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#ba1a1a'; (e.currentTarget as HTMLButtonElement).style.color = '#ffffff'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(186,26,26,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#ba1a1a'; }}
+            >
+              <FileText className="w-3.5 h-3.5" /> DAILY REPORT PDF
             </button>
           </div>
         </div>

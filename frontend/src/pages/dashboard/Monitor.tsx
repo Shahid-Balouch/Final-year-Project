@@ -253,6 +253,7 @@ const Monitor: React.FC = () => {
   const [maximizedFeed, setMaximizedFeed] = useState<{ name: string; feedId: string } | null>(null);
   const [togglingIds, setTogglingIds] = useState<number[]>([]);
   const [mapAlert, setMapAlert] = useState<Alert | null>(null);
+  const [layout, setLayout] = useState<'1x1' | '2x2' | '3x3'>('3x3');
 
   // Derive local camera state from activeFeeds
   const localFeeds = activeFeeds.filter(f => !f.startsWith('url-'));
@@ -533,13 +534,35 @@ const Monitor: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Layout Selector */}
+            <div className="flex items-center gap-1.5 p-1.5 rounded-2xl" style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>Layout</span>
+              {[
+                { key: '1x1', label: '1×1', cols: 'grid-cols-1' },
+                { key: '2x2', label: '2×2', cols: 'grid-cols-2 md:grid-cols-2 lg:grid-cols-2' },
+                { key: '3x3', label: '3×3', cols: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' },
+              ].map(l => (
+                <button
+                  key={l.key}
+                  onClick={() => setLayout(l.key as '1x1' | '2x2' | '3x3')}
+                  className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all rounded-xl ${
+                    layout === l.key
+                      ? 'bg-[#2563eb] text-white'
+                      : 'bg-white text-[var(--color-outline-variant)] border border-[var(--color-outline-variant)]'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* â”€â”€ Camera Card Grid â”€â”€ */}
           <motion.div
             initial="hidden" animate="show"
             variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className={`grid gap-6 ${layout === '1x1' ? 'grid-cols-1' : layout === '2x2' ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
           >
             <AnimatePresence mode="popLayout">
               {/* Local camera card always shown */}

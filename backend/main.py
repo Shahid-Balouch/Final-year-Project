@@ -1484,6 +1484,167 @@ def api_records_export(
         },
     )
 
+@app.get("/api/reports/daily-pdf")
+def api_reports_daily_pdf(db: Session = Depends(get_db)):
+    """Generate a PDF daily security report for today's alerts."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+
+    # --- Query today's alerts ---
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    alerts = (
+        db.query(Alert)
+        .filter(Alert.backend_ts >= int(today_start.timestamp() * 1000))
+        .filter(Alert.backend_ts < int(today_end.timestamp() * 1000))
+        .order_by(Alert.backend_ts.desc())
+        .all()
+    )
+
+    total_alerts = len(alerts)
+    # Count violations: alerts that are NOT person-search-matches (i.e., actual detection violations)
+    total_violations = sum(1 for a in alerts if not a.is_person_search_match)
+
+    # --- Build PDF ---
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            leftMargin=0.75*inch, rightMargin=0.75*inch,
+                            topMargin=0.75*inch, bottomMargin=0.75*inch,
+                            title="Daily Security Report")
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle', parent=styles['Title'],
+        fontSize=20, textColor=colors.HexColor('#2480ff'),
+        alignment=TA_CENTER, spaceAfter=10,
+    )
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle', parent=styles['Normal'],
+        fontSize=12, textColor=colors.HexColor('#666666'),
+        alignment=TA_CENTER, spaceAfter=20,
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading', parent=styles['Heading2'],
+        fontSize=14, textColor=colors.HexColor('#2480ff'),
+        spaceBefore=12, spaceAfter=6,
+    )
+    cell_style = ParagraphStyle(
+        'Cell', parent=styles['Normal'],
+        fontSize=8, leading=10,
+    )
+    cell_style_bold = ParagraphStyle(
+        'CellBold', parent=cell_style,
+        fontName='Helvetica-Bold',
+    )
+
+    story = []
+
+    # Title
+    story.append(Paragraph("Daily Security Report", title_style))
+    today_str = today_start.strftime("%B %d, %Y")
+    story.append(Paragraph(f"Report Date: {today_str}", subtitle_style))
+
+    # Summary metrics
+    story.append(Paragraph("Summary", heading_style))
+    summary_data = [
+        [Paragraph("Total Alerts", cell_style_bold), Paragraph(str(total_alerts), cell_style)],
+        [Paragraph("Total Violations", cell_style_bold), Paragraph(str(total_violations), cell_style)],
+    ]
+    summary_table = Table(summary_data, colWidths=[2.5*inch, 2.5*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(summary_table)
+
+    # Events table
+    story.append(Paragraph("Events Log", heading_style))
+
+    # Table header
+    header = [
+        Paragraph("Time", cell_style_bold),
+        Paragraph("Camera", cell_style_bold),
+        Paragraph("Identity", cell_style_bold),
+        Paragraph("Violation", cell_style_bold),
+        Paragraph("Severity", cell_style_bold),
+    ]
+
+    rows = [header]
+    for a in alerts:
+        # Time
+        try:
+            ts = datetime.fromtimestamp((a.backend_ts or 0) / 1000)
+            time_str = ts.strftime("%H:%M:%S")
+        except Exception:
+            time_str = a.timestamp or "--"
+
+        # Camera (from feed_id)
+        camera = a.feed_id or "Unknown"
+
+        # Identity
+        identity = "Watchlist Match" if a.is_person_search_match else "Unknown"
+
+        # Violation (from detections)
+        try:
+            import json as _json
+            dets = _json.loads(a.detections or "[]")
+            violation = ", ".join(d.get("label", "Unknown") for d in dets) if dets else "None"
+        except Exception:
+            violation = "None"
+
+        # Severity
+        labels = violation.lower().split(", ")
+        if any(l in ("weapon", "knife", "gun") for l in labels):
+            severity = "HIGH"
+        elif any(l in ("fight", "violence") for l in labels):
+            severity = "MEDIUM"
+        else:
+            severity = "LOW"
+
+        rows.append([
+            Paragraph(time_str, cell_style),
+            Paragraph(camera, cell_style),
+            Paragraph(identity, cell_style),
+            Paragraph(violation, cell_style),
+            Paragraph(severity, cell_style),
+        ])
+
+    events_table = Table(rows, colWidths=[0.9*inch, 1.1*inch, 1.2*inch, 1.8*inch, 0.8*inch], repeatRows=1)
+    events_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2480ff')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f1f5f9')]),
+    ]))
+    story.append(events_table)
+
+    if total_alerts == 0:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("No alerts recorded for today.", styles['Normal']))
+
+    doc.build(story)
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename=daily_security_report_{today_start.strftime("%Y%m%d")}.pdf'
+        },
+    )
+
 
 # ── Notification endpoints (additive)
 @app.websocket("/ws/notifications")
