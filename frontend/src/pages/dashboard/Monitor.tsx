@@ -6,8 +6,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import CameraStream from '../../components/dashboard/CameraStream';
-import AlertsPanel from '../../components/dashboard/AlertsPanel';
-import PersonsPanel from '../../components/dashboard/PersonsPanel';
 import type { Alert } from '../../types/dashboard';
 import type { UrlCamera } from '../../context/AppContext';
 
@@ -237,13 +235,10 @@ function UrlCameraCard({
 
 const Monitor: React.FC = () => {
   const {
-    alerts, detectedPersons, setDetectedPersons, selectedPerson, setSelectedPerson,
+    detectedPersons, selectedPerson, setSelectedPerson,
     cameraActive, isCameraToggling, toggleCamera,
     activeFeeds,
-    watchlist,
-    privacyMode, personLogEnabled,
     focusedPersonId, handleSetFocus, focusedPersonVisible,
-    semanticQuery, semanticResults, semanticLoading, handleSemanticSearch,
     urlCameras, toggleUrlCamera, toggleUrlCameraVisibility,
     localCameraVisible, toggleLocalCameraVisibility,
     systemLatency,
@@ -271,8 +266,6 @@ const Monitor: React.FC = () => {
     await toggleUrlCamera(id);
     setTogglingIds(p => p.filter(x => x !== id));
   };
-
-  const setIsAddingTarget = (_v: boolean) => {};
 
   return (
     <div className="flex h-full overflow-hidden">
