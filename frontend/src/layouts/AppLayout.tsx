@@ -24,9 +24,9 @@ const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const username = localStorage.getItem('username') || 'OPERATOR';
-  const userEmail = localStorage.getItem('email') || 'N/A';
-  const role = localStorage.getItem('role') || 'admin';
+  const [username, setUsername] = useState(localStorage.getItem('username') || 'OPERATOR');
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('email') || 'N/A');
+  const [role, setRole] = useState(localStorage.getItem('role') || 'admin');
 
   // Redirection for Organization role
   useEffect(() => {
@@ -34,6 +34,29 @@ const AppLayout: React.FC = () => {
       navigate('/dashboard/organization', { replace: true });
     }
   }, [role, location.pathname, navigate]);
+
+  // --- Refresh user profile from backend on mount (fixes stale localStorage email) ---
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API}/api/auth/me?token=${token}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.email) {
+          setUserEmail(d.email);
+          localStorage.setItem('email', d.email);
+        }
+        if (d.username) {
+          setUsername(d.username);
+          localStorage.setItem('username', d.username);
+        }
+        if (d.role) {
+          setRole(d.role);
+          localStorage.setItem('role', d.role);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // --- Core state ---
   const [alerts, setAlerts] = useState<Alert[]>([]);

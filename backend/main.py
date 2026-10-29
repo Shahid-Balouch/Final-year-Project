@@ -713,6 +713,27 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         "is_admin": db_user.is_admin
     }
 
+@app.get("/api/auth/me")
+def get_current_user_info(token: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Return the current logged-in user's profile info from the database."""
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            user = db.query(User).filter(User.username == username).first()
+            if user:
+                return {
+                    "email": user.email,
+                    "username": user.username,
+                    "role": user.role,
+                    "is_admin": user.is_admin,
+                    "is_verified": user.is_verified,
+                    "is_approved": user.is_approved,
+                }
+        except Exception:
+            pass
+    return {"email": None, "username": None, "role": None, "is_admin": False}
+
 # --- API Endpoints ---
 @app.get("/api/auth/users")
 def get_users(db: Session = Depends(get_db)):
