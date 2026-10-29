@@ -593,33 +593,6 @@ const Monitor: React.FC = () => {
 
         </div>
       </section>
-
-      {/* â”€â”€â”€ RIGHT PANELS â”€â”€â”€ */}
-      {personLogEnabled && (
-        <PersonsPanel
-          detectedPersons={detectedPersons}
-          setSelectedPerson={setSelectedPerson}
-          semanticQuery={semanticQuery}
-          semanticResults={semanticResults}
-          semanticLoading={semanticLoading}
-          handleSemanticSearch={handleSemanticSearch}
-          focusedPersonId={focusedPersonId}
-          setDetectedPersons={setDetectedPersons}
-        />
-      )}
-
-      <AlertsPanel
-        alerts={alerts}
-        watchlist={watchlist}
-        setIsAddingTarget={setIsAddingTarget}
-        setMapAlert={setMapAlert}
-        scrollRef={{ current: null } as React.RefObject<HTMLDivElement>}
-      />
-
-      <style>{`
-        @keyframes scanner { 0%{top:0%} 100%{top:100%} }
-        .animate-scanner { animation: scanner 2s ease-in-out infinite; }
-      `}</style>
     </div>
   );
 };
