@@ -527,6 +527,9 @@ async def ingest(params: Offer):
 
 camera = CameraEngine(source="auto")
 
+# Server start time for uptime tracking (additive)
+SERVER_START_TIME = time.time()
+
 # Snapshot static mount (additive)
 SNAPSHOTS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "snapshots"))
 os.makedirs(SNAPSHOTS_PATH, exist_ok=True)
@@ -1118,6 +1121,30 @@ def get_system_specs():
 @app.get("/api/system/check")
 def system_check():
     return get_system_specs()
+
+@app.get("/api/system/health")
+def system_health(db: Session = Depends(get_db)):
+    """Return real-time server health metrics."""
+    import psutil
+    uptime_seconds = int(time.time() - SERVER_START_TIME)
+    uptime_str = str(timedelta(seconds=uptime_seconds))
+
+    active_feeds = camera.get_active_feeds()
+    camera_online = len(active_feeds)
+    total_cameras = db.query(Camera).count()
+    camera_offline = max(0, total_cameras - camera_online)
+
+    return {
+        "cpu_usage": f"{psutil.cpu_percent(interval=0.1)}%",
+        "ram_usage": f"{psutil.virtual_memory().percent}%",
+        "disk_usage": f"{psutil.disk_usage('/').percent}%",
+        "uptime": uptime_str,
+        "ai_status": "Active",
+        "camera_status": {
+            "online": camera_online,
+            "offline": camera_offline
+        }
+    }
 def get_system_info():
     return {
         "local_ip": get_local_ip(),

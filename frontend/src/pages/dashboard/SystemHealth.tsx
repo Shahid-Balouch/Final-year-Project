@@ -5,6 +5,18 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { API } from '../../types/dashboard';
 import { useApp } from '../../context/AppContext';
 
+interface SystemHealthData {
+  cpu_usage: string;
+  ram_usage: string;
+  disk_usage: string;
+  uptime: string;
+  ai_status: string;
+  camera_status: {
+    online: number;
+    offline: number;
+  };
+}
+
 interface SystemSpecs {
   os: string;
   cpu: string;
@@ -18,14 +30,34 @@ interface SystemSpecs {
 const SystemHealth: React.FC = () => {
   const { systemLatency, activeFeeds } = useApp();
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
+  const [health, setHealth] = useState<SystemHealthData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [perfData, setPerfData] = useState<any[]>([]);
 
+  // Fetch static system specs once on mount
   useEffect(() => {
     fetch(`${API}/api/system/check`)
       .then(res => res.json())
       .then(data => { setSpecs(data); setLoading(false); })
       .catch(() => setLoading(false));
+  }, []);
+
+  // Fetch real-time health metrics every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`${API}/api/system/health`)
+        .then(res => {
+          if (!res.ok) throw new Error('Health check failed');
+          return res.json();
+        })
+        .then(data => {
+          setHealth(data);
+          setError(false);
+        })
+        .catch(() => setError(true));
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -52,9 +84,24 @@ const SystemHealth: React.FC = () => {
     </div>
   );
 
+  if (error) return (
+    <div className="h-full flex flex-col items-center justify-center" style={{ background: 'var(--color-background)' }}>
+      <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+      <h2 className="text-lg font-bold text-[var(--color-on-surface)]">Connection Lost</h2>
+      <p className="text-[var(--color-outline-variant)] text-center max-w-md px-4">
+        Unable to reach the backend health endpoint. Please ensure the server is running.
+      </p>
+    </div>
+  );
+
   if (!specs) return null;
 
   const isInsufficient = specs.capacity === 0;
+
+  // Parse health percentages for progress bars
+  const cpuPct = health ? parseInt(health.cpu_usage.replace('%', '')) || 0 : 0;
+  const ramPct = health ? parseInt(health.ram_usage.replace('%', '')) || 0 : 0;
+  const diskPct = health ? parseInt(health.disk_usage.replace('%', '')) || 0 : 0;
 
   return (
     <div className="flex-1 overflow-y-auto font-sans pb-12" style={{ background: 'var(--color-background)' }}>
@@ -80,12 +127,14 @@ const SystemHealth: React.FC = () => {
             style={{ background: 'var(--color-surface)', border: '1px solid rgba(0,0,0,0.1)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)' }}>
             <div className="flex flex-col">
               <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>Kernel Uptime</span>
-              <span className="text-[11px] font-mono font-bold" style={{ color: 'var(--color-on-surface)' }}>02:14:55:09</span>
+              <span className="text-[11px] font-mono font-bold" style={{ color: 'var(--color-on-surface)' }}>{health?.uptime || '00:00:00'}</span>
             </div>
             <div style={{ width: '1px', height: '28px', background: 'rgba(0,0,0,0.1)' }} />
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>Auth Status</span>
-              <span className="text-[11px] font-mono font-bold" style={{ color: '#16a34a' }}>SUPER_USER</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--color-outline)' }}>AI Status</span>
+              <span className={`text-[11px] font-mono font-bold ${health?.ai_status === 'Active' ? 'text-[#16a34a]' : 'text-red-500'}`}>
+                {health?.ai_status || 'UNKNOWN'}
+              </span>
             </div>
           </div>
         </div>
@@ -181,14 +230,18 @@ const SystemHealth: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div className="p-3 bg-blue-50 rounded-2xl text-[#2563eb]"><Cpu size={20} /></div>
                 <div className="text-right">
-                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">CPU_CORE</p>
-                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{specs.cores} Units</p>
+                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">CPU_USAGE</p>
+                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{health?.cpu_usage || specs.cores + ' Units'}</p>
                 </div>
             </div>
             <div>
                 <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-1.5" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>Processor Signature</p>
                 <p className="text-[13px] font-black leading-tight" style={{ color: 'var(--color-on-surface)' }}>{specs.cpu}</p>
             </div>
+            <div className="w-full h-2 bg-[#f8fafc] rounded-full overflow-hidden mt-4">
+                <div className="h-full bg-[#2563eb] rounded-full" style={{ width: `${cpuPct}%` }} />
+            </div>
+            <p className="text-[9px] font-black text-[var(--color-outline)] mt-1 opacity-50 uppercase tracking-widest">{cpuPct}% CPU Load</p>
           </motion.div>
 
           {/* Memory Card */}
@@ -198,41 +251,95 @@ const SystemHealth: React.FC = () => {
             <div className="flex items-center justify-between">
                 <div className="p-3 bg-purple-50 rounded-2xl text-[#a855f7]"><HardDrive size={20} /></div>
                 <div className="text-right">
-                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">RAM_POOL</p>
-                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{specs.ram}GB Addr</p>
+                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">RAM_USAGE</p>
+                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{health?.ram_usage || specs.ram + 'GB Addr'}</p>
                 </div>
             </div>
             <div>
                 <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-2" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>Memory Saturation</p>
                 <div className="w-full h-2 bg-[#f8fafc] rounded-full overflow-hidden mt-3">
-                    <div className="h-full bg-[#a855f7] rounded-full" style={{ width: '42%' }} />
+                    <div className="h-full bg-[#a855f7] rounded-full" style={{ width: `${ramPct}%` }} />
                 </div>
-                <p className="text-[9px] font-black text-[var(--color-outline)] mt-3 opacity-50 uppercase tracking-widest">4.2GB Available / System Reserved</p>
+                <p className="text-[9px] font-black text-[var(--color-outline)] mt-3 opacity-50 uppercase tracking-widest">{ramPct}% Memory Used</p>
             </div>
           </motion.div>
 
-          {/* GPU Card */}
+          {/* Disk Card */}
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="p-7 rounded-[1.25rem] space-y-6 transition-all hover:shadow-md"
+            style={{ background: 'white', border: '1px solid var(--color-outline-variant)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-orange-50 rounded-2xl text-[#ea580c]"><HardDrive size={20} /></div>
+                <div className="text-right">
+                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">DISK_USAGE</p>
+                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{health?.disk_usage || '0%'}</p>
+                </div>
+            </div>
+            <div>
+                <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-2" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>Storage Saturation</p>
+                <div className="w-full h-2 bg-[#f8fafc] rounded-full overflow-hidden mt-3">
+                    <div className="h-full bg-[#ea580c] rounded-full" style={{ width: `${diskPct}%` }} />
+                </div>
+                <p className="text-[9px] font-black text-[var(--color-outline)] mt-3 opacity-50 uppercase tracking-widest">{diskPct}% Disk Used</p>
+            </div>
+          </motion.div>
+
+        </div>
+
+        {/* Camera & AI Status Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Camera Status Card */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="p-7 rounded-[1.25rem] space-y-6 transition-all hover:shadow-md"
+            style={{ background: 'white', border: '1px solid var(--color-outline-variant)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-blue-50 rounded-2xl text-[#2563eb]"><Monitor size={20} /></div>
+                <div className="text-right">
+                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">CAMERA_STATUS</p>
+                    <p className="text-sm font-black text-[var(--color-on-surface)] uppercase">{health?.camera_status.online || 0} Online</p>
+                </div>
+            </div>
+            <div>
+                <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-2" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>Camera Feeds</p>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-1">
+                        <p className="text-[9px] font-black text-[#16a34a] uppercase">{health?.camera_status.online || 0}</p>
+                        <p className="text-[8px] text-[var(--color-outline)]">Online</p>
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-[9px] font-black text-[#ba1a1a] uppercase">{health?.camera_status.offline || 0}</p>
+                        <p className="text-[8px] text-[var(--color-outline)]">Offline</p>
+                    </div>
+                </div>
+                <div className="w-full h-2 bg-[#f8fafc] rounded-full overflow-hidden">
+                    <div className="h-full bg-[#16a34a] rounded-full" style={{ width: '100%' }} />
+                </div>
+            </div>
+          </motion.div>
+
+          {/* AI Status Card */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className="p-7 rounded-[1.25rem] space-y-6 transition-all hover:shadow-md"
             style={{ background: 'white', border: '1px solid var(--color-outline-variant)', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
             <div className="flex items-center justify-between">
                 <div className="p-3 bg-green-50 rounded-2xl text-[#16a34a]"><Zap size={20} /></div>
                 <div className="text-right">
-                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">GPU_ACCEL</p>
-                    <p className="text-sm font-black text-[#16a34a] uppercase">{specs.gpu ? 'Enabled' : 'Disabled'}</p>
+                    <p className="text-[9px] font-extrabold text-[var(--color-outline)] tracking-widest uppercase opacity-70">AI_ENGINE</p>
+                    <p className="text-sm font-black text-[#16a34a] uppercase">{health?.ai_status || 'Disabled'}</p>
                 </div>
             </div>
-            {specs.gpu ? (
-                <div>
-                    <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-1.5" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>NVIDIA Architecture</p>
-                    <p className="text-[13px] font-black truncate uppercase" style={{ color: 'var(--color-on-surface)' }}>{specs.gpu.name}</p>
-                    <p className="text-[10px] font-black text-[#16a34a] mt-2 uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded-sm inline-block">{specs.gpu.vram}GB Dedicated VRAM</p>
-                </div>
-            ) : (
-                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">No CUDA acceleration found</p>
-            )}
+            <div>
+                <p className="text-[9px] font-extrabold tracking-[0.15em] uppercase mb-1.5" style={{ color: 'var(--color-outline)', opacity: 0.6 }}>Inference Acceleration</p>
+                {specs.gpu ? (
+                    <div>
+                        <p className="text-[13px] font-black truncate uppercase" style={{ color: 'var(--color-on-surface)' }}>{specs.gpu.name}</p>
+                        <p className="text-[10px] font-black text-[#16a34a] mt-2 uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded-sm inline-block">{specs.gpu.vram}GB Dedicated VRAM</p>
+                    </div>
+                ) : (
+                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">No CUDA acceleration found</p>
+                )}
+            </div>
           </motion.div>
-
         </div>
 
         {/* Footer Terminal Row */}
