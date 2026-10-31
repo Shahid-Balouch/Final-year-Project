@@ -1303,11 +1303,17 @@ async def api_staff_register(
         import camera_engine
         from identity.staff_db import register_staff
 
+        # Ensure face recognition models are loaded
+        if not hasattr(camera_engine, '_MTCNN') or camera_engine._MTCNN is None:
+            raise HTTPException(status_code=500, detail="Face detection model not loaded")
+        if not hasattr(camera_engine, '_RESNET') or camera_engine._RESNET is None:
+            raise HTTPException(status_code=500, detail="Face embedding model not loaded")
+
         content = await image.read()
         pil = Image.open(BytesIO(content)).convert("RGB")
         face_tensor = camera_engine._MTCNN(pil)
         if face_tensor is None:
-            raise HTTPException(status_code=400, detail="No face detected")
+            raise HTTPException(status_code=400, detail="No face detected in the image. Please upload a clear photo of your face.")
         if face_tensor.dim() == 4:
             face_tensor = face_tensor[0]
         with torch.no_grad():

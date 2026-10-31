@@ -135,6 +135,7 @@ const StaffPage: React.FC = () => {
       formData.append('name', newName.trim());
       formData.append('role', newRole);
       formData.append('allowed_zones', newAllowedZones.join(','));
+      formData.append('allowed_roles', newRole);
 
       // Convert base64 to blob for upload
       const response = await fetch(faceImage);
