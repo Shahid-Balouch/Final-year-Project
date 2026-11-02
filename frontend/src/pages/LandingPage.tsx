@@ -102,10 +102,10 @@ const LandingPage: React.FC = () => {
         <div className="flex items-center gap-2 md:gap-4">
           {isAuthenticated ? (
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/login')}
               className="group px-5 md:px-6 py-2.5 font-semibold text-sm rounded-full text-white bg-[var(--color-primary)] hover:bg-[var(--color-on-primary-container)] transition-all shadow-md hover:shadow-lg flex items-center gap-2"
             >
-              Enter Dashboard
+              Operator Login
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
           ) : (
@@ -172,19 +172,8 @@ const LandingPage: React.FC = () => {
 
             <motion.div
               variants={itemVariants}
-              className="flex flex-wrap gap-4 justify-center mb-14"
+              className="flex flex-wrap justify-center mb-14"
             >
-              <button
-                onClick={() =>
-                  navigate(isAuthenticated ? '/dashboard' : '/signup')
-                }
-                className="group px-8 py-4 font-semibold text-[15px] rounded-full text-white bg-[var(--color-primary)] hover:bg-[var(--color-on-primary-container)] transition-all shadow-[0_8px_20px_-4px_rgba(79,70,229,0.5)] hover:shadow-[0_12px_24px_-4px_rgba(79,70,229,0.6)] hover:-translate-y-0.5 flex items-center gap-2"
-              >
-                <Zap className="w-5 h-5 fill-current" />
-                {isAuthenticated ? 'Open Dashboard' : 'Initialize Access'}
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-
               <button
                 onClick={() => navigate('/login')}
                 className="px-8 py-4 font-semibold text-[15px] rounded-full text-[var(--color-on-surface)] bg-white/90 backdrop-blur border border-[var(--color-outline)] hover:border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-container)] hover:-translate-y-0.5 transition-all shadow-sm flex items-center gap-2"
