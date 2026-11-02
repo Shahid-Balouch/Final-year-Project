@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, User, Lock, ChevronRight, AlertCircle } from 'lucide-react';
 import { API } from '../types/dashboard';
-import loginBg from '../assets/login-bg.jpg';
+import loginBg from '../assets/login page.jpg';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -45,7 +45,7 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex overflow-hidden">
 
       {/* Left Side - Image Panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center"
+      <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${loginBg})` }}>
       </div>
 
