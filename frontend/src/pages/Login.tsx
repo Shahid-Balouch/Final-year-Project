@@ -47,24 +47,6 @@ const Login: React.FC = () => {
       {/* Left Side - Image Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center"
         style={{ backgroundImage: `url(${loginBg})` }}>
-        <div className="absolute inset-0 bg-black/30"></div>
-
-        {/* Logo in left panel */}
-        <div className="absolute top-6 left-6 flex items-center gap-2.5 cursor-pointer group z-10"
-          onClick={() => navigate('/')}>
-          <div className="w-8 h-8 flex items-center justify-center transition-all duration-300 rounded-xl shadow-sm"
-            style={{ border: '1px solid var(--color-outline-variant)', color: 'var(--color-primary)', background: 'var(--color-surface)' }}>
-            <Shield className="w-4 h-4" />
-          </div>
-          <span style={{ fontSize: '0.875rem', fontFamily: "'Manrope', sans-serif", fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#ffffff' }}>AI Surviallance System</span>
-        </div>
-
-        <div className="absolute bottom-6 left-6 z-10">
-          <div className="flex flex-col">
-            <span style={{ fontSize: '1.5rem', fontFamily: "'Manrope', sans-serif", fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#ffffff' }}>AI Surviallance</span>
-            <span style={{ fontSize: '0.875rem', fontFamily: "'Manrope', sans-serif", fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.7)' }}>Intelligent Surveillance System</span>
-          </div>
-        </div>
       </div>
 
       {/* Right Side - Login Form Panel */}
