@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, User, Lock, ChevronRight, AlertCircle } from 'lucide-react';
 import { API } from '../types/dashboard';
+import loginBg from '../assets/login-bg.jpg';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -45,7 +46,7 @@ const Login: React.FC = () => {
 
       {/* Left Side - Image Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center"
-        style={{ backgroundImage: "url('/login-bg.jpg.jpg')" }}>
+        style={{ backgroundImage: `url(${loginBg})` }}>
         <div className="absolute inset-0 bg-black/50"></div>
 
         {/* Logo in left panel */}
