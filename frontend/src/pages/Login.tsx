@@ -47,7 +47,7 @@ const Login: React.FC = () => {
       {/* Left Side - Image Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center"
         style={{ backgroundImage: `url(${loginBg})` }}>
-        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="absolute inset-0 bg-black/30"></div>
 
         {/* Logo in left panel */}
         <div className="absolute top-6 left-6 flex items-center gap-2.5 cursor-pointer group z-10"
