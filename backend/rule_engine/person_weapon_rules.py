@@ -82,26 +82,35 @@ class PersonWeaponRuleEngine:
             info = (identity_infos[idx] if idx < len(identity_infos or []) else {}) or {}
             identity = (info.get("identity") or "unknown").lower()
 
-            # ---- PERSON RULES ----
+            # ---- Case A: Staff — never alert (except weapon handled below) ----
+            if identity == "staff":
+                if label in WEAPON_CLASSES and conf >= WEAPON_THRESHOLD:
+                    violations.append(_v("Weapon Detected", "CRITICAL",
+                                         "Person is carrying a weapon", track_id, label, box))
+                continue
+
+            # ---- Case B: Unknown — only alert if weapon detected ----
+            if identity == "unknown":
+                if label in WEAPON_CLASSES and conf >= WEAPON_THRESHOLD:
+                    violations.append(_v("Weapon Detected", "CRITICAL",
+                                         "Person is carrying a weapon", track_id, label, box))
+                continue
+
+            # ---- Case C: Targeted / Watchlist person — always CRITICAL ----
+            if identity in ("target", "watchlist", "matched"):
+                violations.append(_v("Targeted Person", "CRITICAL",
+                                     "Person is in the targeted watchlist", track_id, label, box))
+                continue
+
+            # ---- PERSON RULES (other identities) ----
             if label == "person":
-                # Staff: No alerts for normal behavior (only weapon alerts above)
-                if identity == "staff":
-                    continue
-                # Unknown person: No alerts for normal behavior (only weapon/targeted alerts)
-                if identity == "unknown":
-                    continue
-                # Targeted/Watchlist person: Always alert as CRITICAL
-                if identity in ("target", "watchlist", "matched"):
-                    violations.append(_v("targeted_person_detected", "critical",
-                                         f"Targeted person detected: {info.get('name', 'Unknown')} in '{zone_label}'",
-                                         track_id, label, box))
-                    continue
+                continue  # No alerts for normal person detection
 
             # ---- WEAPON RULES ----
             elif label in WEAPON_CLASSES:
                 if conf >= WEAPON_THRESHOLD:
-                    violations.append(_v("weapon_threat", "critical",
-                                         f"Weapon detected: {label} ({conf:.2f})", track_id, label, box))
+                    violations.append(_v("Weapon Detected", "CRITICAL",
+                                         "Person is carrying a weapon", track_id, label, box))
 
             # ---- ABANDONED OBJECT RULES ----
             elif label in ABANDONED_CLASSES:

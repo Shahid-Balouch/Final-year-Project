@@ -22,7 +22,10 @@ def build_alert_payload(identity_info, violations, ctx):
     for v in violations:
         rule_name = v.get("rule", "")
         desc = v.get("description", "")
-        if "weapon" in rule_name.lower():
+        reason = v.get("reason", "")
+        if reason:
+            reason_parts.append(reason)
+        elif "weapon" in rule_name.lower():
             reason_parts.append(f"Carrying a weapon ({desc})")
         elif "target" in rule_name.lower() or "watchlist" in rule_name.lower():
             reason_parts.append(f"Person is in the targeted watchlist ({desc})")
@@ -32,6 +35,9 @@ def build_alert_payload(identity_info, violations, ctx):
     reason_text = "; ".join(reason_parts) if reason_parts else "No specific violation"
     identity_label = "Unknown person" if identity == "unknown" else (name or "Person")
     message = f"[{top.upper()}] ALERT: {identity_label} detected at {camera}. Reason: {reason_text}."
+
+    # Add top-level reason field to payload
+    payload_reason = reason_text
 
     return {
         "priority": top,
@@ -43,5 +49,6 @@ def build_alert_payload(identity_info, violations, ctx):
         "zone": zone_label,
         "snapshot": ctx.get("snapshot_path"),
         "violations": violations,
+        "reason": payload_reason,
         "message": message,
     }

@@ -111,7 +111,7 @@ def evaluate_frame(camera_id, frame, detections, face_results, user_id=None, db=
         "snapshot_url": snapshot_url,
         "snapshot_path": snapshot_path,
         "timestamp": now,
-        "message": "; ".join(v["description"] for v in all_violations),
+        "message": "; ".join(v.get("reason", v.get("description", "")) for v in all_violations),
     }
     _mc_dispatcher.dispatch(payload, user_id=user_id, db=db)
     return all_violations
