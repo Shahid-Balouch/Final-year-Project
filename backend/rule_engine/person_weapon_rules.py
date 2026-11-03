@@ -84,25 +84,18 @@ class PersonWeaponRuleEngine:
 
             # ---- PERSON RULES ----
             if label == "person":
-                if identity == "unknown" and zone.get("is_restricted"):
-                    violations.append(_v("restricted_zone_intrusion", "critical",
-                                         f"Unknown person in restricted zone '{zone_label}'", track_id, label, box))
-                if identity == "unknown" and bool(zone.get("is_after_hours")):
-                    violations.append(_v("after_hours_entry", "high",
-                                         f"Unknown person after hours in '{zone_label}'", track_id, label, box))
-                loiter = ctx.get("loiter_seconds")
-                if loiter is None and self.loiter:
-                    loiter = self.loiter.update(track_id, zone.get("id") or zone_label, "", now)
-                if loiter and loiter > LOITER_SECONDS:
-                    violations.append(_v("loitering", "medium",
-                                         f"Person loitering {int(loiter)}s in '{zone_label}'", track_id, label, box))
-                cap = int(zone.get("max_capacity", 0) or 0)
-                if cap and group_size > cap:
-                    violations.append(_v("crowd_gathering", "high",
-                                         f"Crowd {group_size} exceeds capacity {cap}", track_id, label, box))
-                if ctx.get("crowded"):
-                    violations.append(_v("crowd_gathering", "high",
-                                         f"Crowd threshold exceeded in '{zone_label}'", track_id, label, box))
+                # Staff: No alerts for normal behavior (only weapon alerts above)
+                if identity == "staff":
+                    continue
+                # Unknown person: No alerts for normal behavior (only weapon/targeted alerts)
+                if identity == "unknown":
+                    continue
+                # Targeted/Watchlist person: Always alert as CRITICAL
+                if identity in ("target", "watchlist", "matched"):
+                    violations.append(_v("targeted_person_detected", "critical",
+                                         f"Targeted person detected: {info.get('name', 'Unknown')} in '{zone_label}'",
+                                         track_id, label, box))
+                    continue
 
             # ---- WEAPON RULES ----
             elif label in WEAPON_CLASSES:

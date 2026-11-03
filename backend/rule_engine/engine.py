@@ -98,6 +98,70 @@ class RuleEngine:
 
     def evaluate(self, identity_info, ctx):
         violations = []
+        identity = (identity_info.get("identity") or "").lower()
+
+        # --- Case C: High-Risk Threats (the ONLY reasons for alerts) ---
+
+        # Weapon detected on ANY person (staff, unknown, or targeted)
+        for rule in self.rules:
+            if "weapon" not in rule["name"].lower():
+                continue
+            applies = rule.get("applies_to", [])
+            if identity_info.get("identity") not in applies:
+                continue
+            role = (identity_info.get("role") or ctx.get("role") or "").lower()
+            if role in [r.lower() for r in rule.get("exempt_roles", [])]:
+                continue
+            needed = self._detector_needed(rule["name"])
+            if not self._detector_is_available(needed):
+                continue
+            if self._is_violated(rule, identity_info, ctx):
+                sev = rule.get("severity", "critical")
+                zone = ctx.get("zone") or {}
+                if zone.get("severity_override"):
+                    sev = zone["severity_override"]
+                violations.append({
+                    "rule": rule["name"],
+                    "severity": sev,
+                    "description": f"Weapon detected: {rule.get('description', 'Person carrying weapon')}",
+                })
+
+        # Targeted / Watchlist person
+        if identity in ("target", "watchlist", "matched"):
+            for rule in self.rules:
+                name = rule["name"].lower()
+                if "target" not in name and "watchlist" not in name:
+                    continue
+                applies = rule.get("applies_to", [])
+                if identity_info.get("identity") not in applies:
+                    continue
+                role = (identity_info.get("role") or ctx.get("role") or "").lower()
+                if role in [r.lower() for r in rule.get("exempt_roles", [])]:
+                    continue
+                needed = self._detector_needed(rule["name"])
+                if not self._detector_is_available(needed):
+                    continue
+                if self._is_violated(rule, identity_info, ctx):
+                    sev = rule.get("severity", "critical")
+                    zone = ctx.get("zone") or {}
+                    if zone.get("severity_override"):
+                        sev = zone["severity_override"]
+                    violations.append({
+                        "rule": rule["name"],
+                        "severity": sev,
+                        "description": f"Targeted person detected: {rule.get('description', 'Person is in the targeted watchlist')}",
+                    })
+            return violations
+
+        # Case A: Staff - only weapon alerts (already added above)
+        if identity == "staff":
+            return violations
+
+        # Case B: Unknown - only weapon alerts (already added above)
+        if identity == "unknown":
+            return violations
+
+        # Other identities - apply normal rules
         for rule in self.rules:
             applies = rule.get("applies_to", [])
             if identity_info.get("identity") not in applies:
