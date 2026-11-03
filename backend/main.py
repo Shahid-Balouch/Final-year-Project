@@ -1145,6 +1145,12 @@ def system_health(db: Session = Depends(get_db)):
             "offline": camera_offline
         }
     }
+
+@app.get("/health")
+def health():
+    """Simple health check endpoint."""
+    return {"status": "ok", "service": "ai-surviallance-backend"}
+
 def get_system_info():
     return {
         "local_ip": get_local_ip(),
