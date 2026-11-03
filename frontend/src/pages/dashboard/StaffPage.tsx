@@ -233,15 +233,23 @@ const StaffPage: React.FC = () => {
 
   // ── Delete staff ──
   const handleDeleteStaff = async (id: string) => {
+    console.log('Deleting staff ID:', id);
     setDeleteConfirm(null);
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch(`${API}/api/staff/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       if (!res.ok) throw new Error('Failed to delete staff');
+      setStaff(prev => prev.filter(s => s.id !== id));
       fetchStaff();
     } catch (e) {
-      setError('Failed to delete staff');
+      console.error('Delete staff error:', e);
+      alert('Failed to delete staff');
     }
   };
 

@@ -1352,11 +1352,13 @@ def api_staff_list():
 
 @app.delete("/api/staff/{staff_id}")
 def api_staff_delete(staff_id: str):
+    print(f"Deleting staff ID: {staff_id}")
     try:
         from identity.staff_db import deactivate
         deactivate(staff_id)
-        return {"status": "success", "staff_id": staff_id}
+        return {"status": "success", "message": "Staff deleted", "staff_id": staff_id}
     except Exception as e:
+        print(f"Error deleting staff {staff_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
