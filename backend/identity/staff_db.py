@@ -25,7 +25,7 @@ def load_staff():
         from database import SessionLocal, Staff
         import json as _json
         db = SessionLocal()
-        rows = db.query(Staff).all()
+        rows = db.query(Staff).filter(Staff.active == True).all()
         db.close()
         if rows:
             return [{
@@ -41,7 +41,8 @@ def load_staff():
     except Exception:
         pass
     with _lock:
-        return _read()
+        rows = _read()
+        return [r for r in rows if r.get("active", True)]
 
 def save_staff(rows):
     with _lock:
